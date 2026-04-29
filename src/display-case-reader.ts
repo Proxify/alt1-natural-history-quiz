@@ -5,11 +5,13 @@ import { normalize, OPTIONS_MAP } from "./quiz-data";
 
 const font12 = require("alt1/fonts/aa_12px_mono") as OCR.FontDefinition;
 const font10 = require("alt1/fonts/aa_10px_mono") as OCR.FontDefinition;
+const font9allcaps = require("alt1/fonts/aa_9px_mono_allcaps") as OCR.FontDefinition;
+const font8allcaps = require("alt1/fonts/aa_8px_mono_allcaps") as OCR.FontDefinition;
 
-// Center region of screen — Display Case window always appears here.
-// 25% width × 35% height scan; adjust if users have moved the window far off-center.
-const SCAN_X_FRAC = 0.38;
-const SCAN_W_FRAC = 0.26;
+// Right half of screen center — the Display Case text panel (question + options) is always
+// on the right side of the window. Starting at 46% skips the creature display on the left.
+const SCAN_X_FRAC = 0.46;
+const SCAN_W_FRAC = 0.18;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 
@@ -17,7 +19,11 @@ const SCAN_H_FRAC = 0.44;
 const COLORS: OCR.ColortTriplet[] = [
     [255, 255, 255],
     [240, 225, 205],
+    [220, 210, 190],
 ];
+
+// Noise-only strings returned by OCR when it finds bright pixels but no char match
+const NOISE_RE = /^[*!\s]+$/;
 
 export interface DisplayCaseResult {
     answer: string;
@@ -40,13 +46,34 @@ export function scanDisplayCase(img: a1lib.ImgRef): DisplayCaseResult | null {
 
     const buf = img.toData(capX, capY, capW, capH);
 
-    for (const font of [font12, font10]) {
+    logTopColors(buf, capX, capY);
+
+    for (const font of [font12, font10, font9allcaps, font8allcaps]) {
         for (const color of COLORS) {
             const result = tryFont(buf, font, color, capX, capY, capW, capH);
             if (result) return result;
         }
     }
     return null;
+}
+
+let _lastColorLog = 0;
+
+function logTopColors(buf: ImageData, capX: number, capY: number) {
+    const now = Date.now();
+    if (now - _lastColorLog < 5000) return;
+    _lastColorLog = now;
+
+    const buckets = new Map<string, number>();
+    const data = buf.data;
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (r < 180 && g < 180 && b < 180) continue;
+        const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
+        buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+    const top = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
 }
 
 function tryFont(
@@ -68,7 +95,7 @@ function tryFont(
         ly += font.height
     ) {
         const r = OCR.findReadLine(buf, font, [color], 0, ly, capW - font.width, font.height);
-        if (!r || !r.text.trim()) continue;
+        if (!r || !r.text.trim() || NOISE_RE.test(r.text)) continue;
 
         const frags = r.fragments;
         const x0 = frags.length > 0 ? frags[0].xstart : 0;
@@ -99,7 +126,7 @@ function tryFont(
     }
 
     console.log(
-        `[NHQ-DC] ${lines.length} line(s) found but no triplet match`,
+        `[NHQ-DC] ${lines.length} line(s), no triplet match`,
         `(font.h=${font.height} color=${color}):`,
         lines.map(l => `"${l.text}"`),
     );
