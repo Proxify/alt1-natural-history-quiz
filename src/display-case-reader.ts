@@ -15,11 +15,14 @@ const SCAN_W_FRAC = 0.18;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 
-// White and slightly-warm-white — RS3 interface text is one of these
+// Display Case option text is golden-orange (~255,160,40 observed via color diagnostic).
+// White variants kept as fallback in case question text differs.
 const COLORS: OCR.ColortTriplet[] = [
+    [255, 160, 40],
+    [255, 144, 20],
+    [255, 176, 60],
     [255, 255, 255],
     [240, 225, 205],
-    [220, 210, 190],
 ];
 
 // Noise-only strings returned by OCR when it finds bright pixels but no char match
