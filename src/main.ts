@@ -133,14 +133,14 @@ function clearOverlay() {
 }
 
 function init() {
+	const installDiv = document.getElementById("install");
 	if (a1lib.hasAlt1) {
 		alt1.identifyAppUrl("./appconfig.json");
-		el("no-alt1").classList.remove("visible");
+		if (installDiv) installDiv.classList.add("hidden");
 		setStatus("Watching for quiz dialog...");
 		setInterval(tick, alt1.captureInterval ?? TICK_INTERVAL_MS);
 	} else {
-		el("no-alt1").classList.add("visible");
-		setStatus("Alt1 not detected.");
+		setStatus("Open this page inside Alt1 to use it.");
 	}
 }
 
