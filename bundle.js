@@ -56,11 +56,14 @@ const SCAN_X_FRAC = 0.46;
 const SCAN_W_FRAC = 0.18;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
-// White and slightly-warm-white — RS3 interface text is one of these
+// Display Case option text is golden-orange (~255,160,40 observed via color diagnostic).
+// White variants kept as fallback in case question text differs.
 const COLORS = [
+    [255, 160, 40],
+    [255, 144, 20],
+    [255, 176, 60],
     [255, 255, 255],
     [240, 225, 205],
-    [220, 210, 190],
 ];
 // Noise-only strings returned by OCR when it finds bright pixels but no char match
 const NOISE_RE = /^[*!\s]+$/;
@@ -93,17 +96,18 @@ function logTopColors(buf, capX, capY) {
     const data = buf.data;
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i + 1], b = data[i + 2];
-        // Only track bright pixels (likely text or highlights)
         if (r < 180 && g < 180 && b < 180)
             continue;
         const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
         buckets.set(key, ((_a = buckets.get(key)) !== null && _a !== void 0 ? _a : 0) + 1);
     }
     const top = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-    console.log(`[NHQ-DC] Bright pixel colors in scan region (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
+    console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
 }
 function tryFont(buf, font, color, capX, capY, capW, capH) {
     const lines = [];
+    // Step through every possible text baseline in the scan region.
+    // Using font.height as step size gives full coverage with no gaps.
     for (let ly = font.basey; ly < capH - (font.height - font.basey); ly += font.height) {
         const r = OCR.findReadLine(buf, font, [color], 0, ly, capW - font.width, font.height);
         if (!r || !r.text.trim() || NOISE_RE.test(r.text))
