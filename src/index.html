@@ -38,27 +38,48 @@
     #answer.visible {
       display: block;
     }
-    #no-alt1 {
-      display: none;
-      color: #f48771;
-      margin-top: 8px;
-      padding: 5px 8px;
-      background: #3a1a1a;
+    #install {
+      margin-top: 12px;
+      padding: 8px;
+      background: #2d2d2d;
       border-radius: 4px;
+      border-left: 3px solid #4ec9b0;
+      line-height: 1.6;
     }
-    #no-alt1.visible {
-      display: block;
+    #install a.btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 5px 12px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 13px;
     }
+    #install .hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #888;
+    }
+    #install.hidden { display: none; }
   </style>
 </head>
 <body>
   <h2>Natural History Quiz</h2>
   <div id="status">Initializing...</div>
   <div id="answer"></div>
-  <div id="no-alt1">
-    Alt1 not detected. Open this page inside Alt1 to enable screen reading.
-    <br><br>
-    To add: <code>Alt1 &gt; Add App by URL &gt; appconfig.json</code>
+
+  <div id="install">
+    <strong>Install this app in Alt1:</strong><br>
+    <a class="btn" href="alt1://addapp/https://proxify.github.io/alt1-natural-history-quiz/appconfig.json">
+      + Add to Alt1
+    </a>
+    <div class="hint">
+      Or look for the <strong>"Add App"</strong> button in the top-right corner of the Alt1 browser.<br>
+      Once installed, open the quiz in-game and the correct answer will be highlighted.
+    </div>
   </div>
+
 </body>
 </html>
