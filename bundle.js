@@ -89,11 +89,18 @@ function tick() {
         setStatus("RuneScape window not linked. Try switching Alt1 capture mode to OpenGL.");
         return;
     }
-    const found = reader.find();
+    const img = a1lib.captureHoldFullRs();
+    if (!img) {
+        setStatus("Capture failed — RS window not captured.");
+        return;
+    }
+    const found = reader.find(img);
     if (!found) {
         const now = Date.now();
-        if (state.dialogMissingAt === 0)
+        if (state.dialogMissingAt === 0) {
             state.dialogMissingAt = now;
+            console.log(`[NHQ] Dialog not found. RS size: ${img.width}x${img.height}`);
+        }
         if (now - state.dialogMissingAt > STALE_DIALOG_MS) {
             clearOverlay();
         }
