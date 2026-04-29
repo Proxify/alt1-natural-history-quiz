@@ -38,15 +38,28 @@ function setAnswer(text: string | null) {
 
 function tick() {
 	if (!a1lib.hasAlt1) return;
+	if (!alt1.permissionPixel || !alt1.permissionOverlay) {
+		setStatus("Not installed. Click '+ Add to Alt1' and grant permissions.");
+		return;
+	}
 	if (!alt1.rsLinked) {
-		setStatus("RuneScape window not linked.");
+		setStatus("RuneScape window not linked. Try switching Alt1 capture mode to OpenGL.");
 		return;
 	}
 
-	const found = reader.find();
+	const img = a1lib.captureHoldFullRs();
+	if (!img) {
+		setStatus("Capture failed — RS window not captured.");
+		return;
+	}
+
+	const found = reader.find(img);
 	if (!found) {
 		const now = Date.now();
-		if (state.dialogMissingAt === 0) state.dialogMissingAt = now;
+		if (state.dialogMissingAt === 0) {
+			state.dialogMissingAt = now;
+			console.log(`[NHQ] Dialog not found. RS size: ${img.width}x${img.height}`);
+		}
 		if (now - state.dialogMissingAt > STALE_DIALOG_MS) {
 			clearOverlay();
 		}
@@ -134,10 +147,25 @@ function clearOverlay() {
 
 function init() {
 	const installDiv = document.getElementById("install");
+
+	console.log("[NHQ] hasAlt1:", a1lib.hasAlt1);
+	console.log("[NHQ] typeof alt1:", typeof alt1);
+
 	if (a1lib.hasAlt1) {
+		console.log("[NHQ] rsLinked:", alt1.rsLinked);
+		console.log("[NHQ] version:", alt1.version);
+		console.log("[NHQ] permissionPixel:", alt1.permissionPixel);
+		console.log("[NHQ] permissionOverlay:", alt1.permissionOverlay);
+		console.log("[NHQ] permissionGameState:", alt1.permissionGameState);
+		console.log("[NHQ] rsWidth:", alt1.rsWidth, "rsHeight:", alt1.rsHeight);
+		console.log("[NHQ] calling identifyAppUrl...");
 		alt1.identifyAppUrl("https://proxify.github.io/alt1-natural-history-quiz/appconfig.json");
-		if (installDiv) installDiv.classList.add("hidden");
-		setStatus("Watching for quiz dialog...");
+		console.log("[NHQ] identifyAppUrl called");
+		// Only hide install panel once the app has actually been granted permissions
+		if (installDiv && alt1.permissionPixel) {
+			installDiv.classList.add("hidden");
+		}
+		setStatus(alt1.permissionPixel ? "Watching for quiz dialog..." : "Click '+ Add to Alt1' above, then grant permissions.");
 		setInterval(tick, alt1.captureInterval ?? TICK_INTERVAL_MS);
 	} else {
 		setStatus("Open this page inside Alt1 to use it.");

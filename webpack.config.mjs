@@ -1,6 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import HtmlWebpackPlugin from "html-webpack-plugin";
+import CopyPlugin from "copy-webpack-plugin";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +49,9 @@ export default {
       template: "src/index.html",
       filename: "index.html",
       inject: "body",
+    }),
+    new CopyPlugin({
+      patterns: [{ from: "appconfig.json", to: "appconfig.json" }],
     }),
   ],
   devServer: {

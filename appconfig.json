@@ -3,7 +3,7 @@
   "description": "Highlights the correct answer in the Varrock Museum Natural History Quiz",
   "configUrl": "https://proxify.github.io/alt1-natural-history-quiz/appconfig.json",
   "appUrl": "https://proxify.github.io/alt1-natural-history-quiz/index.html",
-  "permissions": ["overlay", "pixel", "gamestate"],
+  "permissions": "overlay,pixel,gamestate",
   "defaultWidth": 300,
   "defaultHeight": 180,
   "minWidth": 220,
