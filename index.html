@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Natural History Quiz</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      user-select: none;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: #4ec9b0;
+    }
+    #status {
+      padding: 6px 8px;
+      background: #2d2d2d;
+      border-radius: 4px;
+      border-left: 3px solid #4ec9b0;
+      min-height: 36px;
+      word-break: break-word;
+    }
+    #answer {
+      margin-top: 8px;
+      padding: 5px 8px;
+      background: #1a3a1a;
+      border-radius: 4px;
+      border-left: 3px solid #4caf50;
+      display: none;
+    }
+    #answer.visible {
+      display: block;
+    }
+    #install {
+      margin-top: 12px;
+      padding: 8px;
+      background: #2d2d2d;
+      border-radius: 4px;
+      border-left: 3px solid #4ec9b0;
+      line-height: 1.6;
+    }
+    #install a.btn {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 5px 12px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    #install .hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #888;
+    }
+    #install.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h2>Natural History Quiz</h2>
+  <div id="status">Initializing...</div>
+  <div id="answer"></div>
+
+  <div id="install">
+    <strong>Install this app in Alt1:</strong><br>
+    <a class="btn" href="alt1://addapp/https://proxify.github.io/alt1-natural-history-quiz/appconfig.json">
+      + Add to Alt1
+    </a>
+    <div class="hint">
+      Or look for the <strong>"Add App"</strong> button in the top-right corner of the Alt1 browser.<br>
+      Once installed, open the quiz in-game and the correct answer will be highlighted.
+    </div>
+  </div>
+
+<script defer src="bundle.js"></script></body>
+</html>
