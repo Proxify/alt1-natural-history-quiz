@@ -135,7 +135,7 @@ function clearOverlay() {
 function init() {
 	const installDiv = document.getElementById("install");
 	if (a1lib.hasAlt1) {
-		alt1.identifyAppUrl("./appconfig.json");
+		alt1.identifyAppUrl("https://proxify.github.io/alt1-natural-history-quiz/appconfig.json");
 		if (installDiv) installDiv.classList.add("hidden");
 		setStatus("Watching for quiz dialog...");
 		setInterval(tick, alt1.captureInterval ?? TICK_INTERVAL_MS);
