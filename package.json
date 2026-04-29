@@ -1,0 +1,26 @@
+{
+  "name": "alt1-natural-history-quiz",
+  "version": "1.0.0",
+  "description": "Alt1 plugin that highlights the correct answer in the Varrock Museum Natural History Quiz",
+  "private": true,
+  "scripts": {
+    "build": "webpack --config webpack.config.mjs",
+    "watch": "webpack --config webpack.config.mjs --watch",
+    "serve": "webpack serve --config webpack.config.mjs",
+    "test": "node --test src/quiz-data.test.mjs",
+    "install-dev": "npm install --include=dev"
+  },
+  "dependencies": {
+    "alt1": "0.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/webpack-env": "^1.18.0",
+    "html-webpack-plugin": "^5.6.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.4.0",
+    "webpack": "^5.91.0",
+    "webpack-cli": "^5.1.0",
+    "webpack-dev-server": "^5.0.0"
+  }
+}

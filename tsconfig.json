@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es6", "dom"],
+    "strict": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": false,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "jsx": "react",
+    "allowJs": false,
+    "experimentalDecorators": true,
+    "baseUrl": ".",
+    "paths": {
+      "alt1/base": ["./node_modules/alt1/dist/base/index"],
+      "alt1/dialog": ["./node_modules/alt1/dist/dialog/index"],
+      "alt1/ocr": ["./node_modules/alt1/dist/ocr/index"],
+      "alt1/*": ["./node_modules/alt1/dist/*"]
+    }
+  },
+  "include": ["./src", "./shims.d.ts", "./node_modules/alt1/dist/base/alt1api.d.ts"],
+  "exclude": ["node_modules/alt1/dist/base/nodepolyfill.d.ts", "dist"]
+}

@@ -1,0 +1,11 @@
+{
+  "appName": "Natural History Quiz",
+  "description": "Highlights the correct answer in the Varrock Museum Natural History Quiz",
+  "configUrl": "./appconfig.json",
+  "appUrl": "./index.html",
+  "permissions": ["overlay", "pixel", "gamestate"],
+  "defaultWidth": 300,
+  "defaultHeight": 180,
+  "minWidth": 220,
+  "minHeight": 120
+}
