@@ -71,6 +71,7 @@ const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 // Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
 // Orange (~255,160,40) is the interface frame/border, not the text itself.
+// Warm gold [240,200,120] and warm cream [200,180,140] added — may be option text/button color.
 const COLORS = [
     [255, 255, 255],
     [220, 220, 220],
@@ -78,6 +79,8 @@ const COLORS = [
     [240, 240, 240],
     [255, 160, 40],
     [255, 144, 20],
+    [240, 200, 120],
+    [200, 180, 140],
 ];
 // Noise-only strings returned by OCR when it finds bright pixels but no char match
 const NOISE_RE = /^[*!\s]+$/;
@@ -137,7 +140,7 @@ function logRowProfile(buf, capX, capY) {
                 const i = (y * W + x) * 4;
                 const r = data[i], g = data[i + 1], b = data[i + 2];
                 const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
-                const isOrange = r > 200 && g > 100 && g < 200 && b < 80;
+                const isOrange = r > 180 && g > 80 && b < 160 && r > g && (r - b) > 60;
                 if (isGray) {
                     gray++;
                     gMinX = Math.min(gMinX, x);
@@ -155,8 +158,8 @@ function logRowProfile(buf, capX, capY) {
                 orangeInfo.push({ y: capY + y, count: orange, minX: capX + oMinX, maxX: capX + oMaxX });
         }
         // Top 20 rows by pixel count (text rows have ~5-10px, frame has 40-77px)
-        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 20);
-        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 20);
+        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 40);
+        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 40);
         console.log("[NHQ-DC] Top gray rows:", topGray.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
         console.log("[NHQ-DC] Top orange rows:", topOrange.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
     }
@@ -165,18 +168,16 @@ function logRowProfile(buf, capX, capY) {
     }
 }
 let _lastOptDump = 0;
-// Dump ASCII-art pixel maps for the three option rows so we can identify the font.
-// '#'=bright(>200), '+'=mid(120-200), '.'=dark(<120). Throttled to 8s.
+// Dump ASCII-art pixel maps for suspected option rows and sweep y=338-700 for bright rows.
+// '#'=bright(>200), '+'=mid(140-200), '-'=dim(80-140), '.'=dark(<80). Throttled to 8s.
 function logOptionPixels(buf, capX, capY) {
     const now = Date.now();
     if (now - _lastOptDump < 8000)
         return;
     _lastOptDump = now;
-    // The DC can be repositioned by the player. Orange frame detected at x≈1460 (shifted
-    // 412px right from original). Text panel shifts with it: now ~capX+300 to capX+550.
-    // Include confirmed question-text rows (y=309,329 have known gray pixels at x=1639-1666)
-    // so we can see what the actual font glyphs look like, plus the expected option rows.
-    const ROWS = [309, 329, 649, 669, 689, 709];
+    // Text panel is ~capX+300 to capX+550 after DC moved ~412px right.
+    // y=309,329 = confirmed question text; y=429,449,469 = suspected options (OCR found "_"/"~").
+    const ROWS = [309, 329, 429, 449, 469];
     const SX0 = capX + 300, SX1 = capX + 550;
     const lx0 = SX0 - capX, lx1 = SX1 - capX;
     if (lx0 < 0 || lx1 > buf.width) {
@@ -185,6 +186,26 @@ function logOptionPixels(buf, capX, capY) {
     }
     const W = buf.width;
     const data = buf.data;
+    // Sweep y=338-700: report every row that has ≥3 pixels with v>80 (finds dim option text too)
+    const brightRows = [];
+    for (let sy = 338; sy <= 700; sy++) {
+        const ly = sy - capY;
+        if (ly < 0 || ly >= buf.height)
+            continue;
+        let count = 0, maxV = 0;
+        for (let lx = lx0; lx <= lx1; lx++) {
+            const i = (ly * W + lx) * 4;
+            const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            if (v > 80)
+                count++;
+            if (v > maxV)
+                maxV = v;
+        }
+        if (count >= 3)
+            brightRows.push(`y=${sy}(${count}px,max=${Math.round(maxV)})`);
+    }
+    console.log(`[NHQ-OPT] Bright rows y=338-700 (x=${SX0}-${SX1}):`, brightRows.join(" ") || "(none)");
+    // Detailed pixel dump for known/suspected rows
     for (const sy of ROWS) {
         const lyMid = sy - capY;
         for (let dy = -6; dy <= 6; dy++) {
