@@ -51,10 +51,7 @@ const font10 = __webpack_require__(/*! alt1/fonts/aa_10px_mono */ "./node_module
 const font9allcaps = __webpack_require__(/*! alt1/fonts/aa_9px_mono_allcaps */ "./node_modules/alt1/dist/fonts/aa_9px_mono_allcaps.js");
 const font8allcaps = __webpack_require__(/*! alt1/fonts/aa_8px_mono_allcaps */ "./node_modules/alt1/dist/fonts/aa_8px_mono_allcaps.js");
 const font8mono = __webpack_require__(/*! alt1/fonts/aa_8px_mono */ "./node_modules/alt1/dist/fonts/aa_8px_mono.js");
-// aa_8px is shadow=true and proportional (93 chars) — distinct from aa_8px_mono.
 const font8 = __webpack_require__(/*! alt1/fonts/aa_8px */ "./node_modules/alt1/dist/fonts/aa_8px.js");
-// Chatbox shadow fonts — shadow mode uses lum*col so lum=1.0 pixels behave like non-shadow.
-// Different pixel density/shape from the aa_* fonts; may match Display Case rendering.
 const cbFont22 = __webpack_require__(/*! alt1/fonts/chatbox/22pt */ "./node_modules/alt1/dist/fonts/chatbox/22pt.js");
 const cbFont20 = __webpack_require__(/*! alt1/fonts/chatbox/20pt */ "./node_modules/alt1/dist/fonts/chatbox/20pt.js");
 const cbFont18 = __webpack_require__(/*! alt1/fonts/chatbox/18pt */ "./node_modules/alt1/dist/fonts/chatbox/18pt.js");
@@ -62,28 +59,45 @@ const cbFont16 = __webpack_require__(/*! alt1/fonts/chatbox/16pt */ "./node_modu
 const cbFont14 = __webpack_require__(/*! alt1/fonts/chatbox/14pt */ "./node_modules/alt1/dist/fonts/chatbox/14pt.js");
 const cbFont12 = __webpack_require__(/*! alt1/fonts/chatbox/12pt */ "./node_modules/alt1/dist/fonts/chatbox/12pt.js");
 const cbFont10 = __webpack_require__(/*! alt1/fonts/chatbox/10pt */ "./node_modules/alt1/dist/fonts/chatbox/10pt.js");
-// The Display Case text panel (question + options) sits to the right of the vertical divider.
-// At 1918px width the divider is consistently at x≈1143 (59.6%). Starting at 60% puts us
-// just past the divider; 0.30 width covers the full text panel to x≈1726.
+// Capture the full right panel (past the vertical divider at ~60% width).
 const SCAN_X_FRAC = 0.60;
 const SCAN_W_FRAC = 0.30;
 const SCAN_Y_FRAC = 0.28;
-const SCAN_H_FRAC = 0.60; // extended: 1106*0.60=664, scan covers y=309-973
-// Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
-// Orange (~255,160,40) is the interface frame/border, not the text itself.
-// Warm gold [240,200,120] and warm cream [200,180,140] added — may be option text/button color.
+const SCAN_H_FRAC = 0.60;
+// All color candidates — white/gray range + orange + warm gold.
 const COLORS = [
     [255, 255, 255],
+    [240, 240, 240],
     [220, 220, 220],
     [200, 200, 200],
-    [240, 240, 240],
+    [180, 180, 180],
     [255, 160, 40],
     [255, 144, 20],
     [240, 200, 120],
     [200, 180, 140],
+    [160, 140, 100],
 ];
-// Noise-only strings returned by OCR when it finds bright pixels but no char match
+const ALL_FONTS = [
+    cbFont22, cbFont20, cbFont18, cbFont16, cbFont14, cbFont12, cbFont10,
+    font12, font10, font9allcaps, font8allcaps, font8mono, font8,
+];
 const NOISE_RE = /^[*!\s]+$/;
+// Option text confirmed at screen y≈854-870. capY≈309 → local y≈545-561.
+// Scan y=510-595 (1-pixel step) to guarantee hitting any font baseline.
+const OPT_LY0 = 510;
+const OPT_LY1 = 595;
+// Question text is in the upper portion of the DC panel (local y≈0-240).
+const Q_LY0 = 10;
+const Q_LY1 = 240;
+// Space-insensitive OPTIONS_MAP for when fragment reassembly loses intra-word spaces.
+// "Hard shell" → "hardshell" → still unique within the quiz.
+const NOSPACE_MAP = new Map(quiz_data_1.QUIZ_DATA.map(e => [
+    [e.options[0], e.options[1], e.options[2]]
+        .map(o => (0, quiz_data_1.normalize)(o).replace(/\s+/g, ""))
+        .sort()
+        .join("|"),
+    e.answer,
+]));
 function scanDisplayCase(img) {
     const sw = img.width;
     const sh = img.height;
@@ -92,197 +106,180 @@ function scanDisplayCase(img) {
     const capW = Math.floor(sw * SCAN_W_FRAC);
     const capH = Math.floor(sh * SCAN_H_FRAC);
     const buf = img.toData(capX, capY, capW, capH);
-    logTopColors(buf, capX, capY);
-    logRowProfile(buf, capX, capY);
-    logOptionPixels(buf, capX, capY);
-    for (const font of [
-        font12, font10, font9allcaps, font8allcaps, font8mono, font8,
-        cbFont22, cbFont20, cbFont18, cbFont16, cbFont14, cbFont12, cbFont10,
-    ]) {
+    logDiagnostics(buf, capX, capY, capW);
+    // Primary: scan option row (bottom buttons) with 1px y step.
+    const byOption = scanArea(buf, capX, capY, capW, OPT_LY0, OPT_LY1, true);
+    if (byOption)
+        return byOption;
+    // Secondary: scan question area to identify via QUESTION_MAP.
+    const byQuestion = scanArea(buf, capX, capY, capW, Q_LY0, Q_LY1, false);
+    if (byQuestion)
+        return byQuestion;
+    return null;
+}
+// splitByX: given a findReadLine result, split characters into 3 groups by x position.
+// div1 and div2 are local-buffer x dividers between the 3 option buttons.
+function splitByX(r, div1, div2) {
+    const groups = [[], [], []];
+    let prevFrag = null;
+    for (const frag of r.fragments) {
+        const btn = frag.xstart < div1 ? 0 : frag.xstart < div2 ? 1 : 2;
+        const prevBtn = prevFrag === null ? -1 : prevFrag.xstart < div1 ? 0 : prevFrag.xstart < div2 ? 1 : 2;
+        // If the previous char was in the same button and r.text has a space between them, add it.
+        if (prevFrag !== null && btn === prevBtn && frag.index > prevFrag.index + 1) {
+            groups[btn].push(" ");
+        }
+        groups[btn].push(frag.text);
+        prevFrag = frag;
+    }
+    return groups.map(g => g.join("").trim());
+}
+// scanArea: 1-pixel step scan through a local y range, all fonts × colors.
+// isOptionArea=true → tries to split into 3 buttons and match OPTIONS_MAP.
+// isOptionArea=false → reads full-width line and tries QUESTION_MAP.
+function scanArea(buf, capX, capY, capW, ly0, ly1, isOptionArea) {
+    // Option buttons span roughly the left 72% of the capture width.
+    // At 1918px: capW=575, buttons at local x=0-404 → div at 135 and 270.
+    const div1 = Math.floor(capW * 0.235);
+    const div2 = Math.floor(capW * 0.470);
+    const scanW = isOptionArea
+        ? Math.floor(capW * 0.72) // just the 3 buttons
+        : capW - 5; // full panel width
+    for (const font of ALL_FONTS) {
+        const maxW = Math.max(scanW - font.width, 1);
         for (const color of COLORS) {
-            const result = tryFont(buf, font, color, capX, capY, capW, capH);
-            if (result)
-                return result;
+            for (let ly = ly0; ly <= ly1; ly++) {
+                const r = OCR.findReadLine(buf, font, [color], 0, ly, maxW, font.height);
+                if (!r || !r.text.trim() || NOISE_RE.test(r.text))
+                    continue;
+                if (r.fragments.length < 2)
+                    continue;
+                if (isOptionArea) {
+                    const result = tryOptionMatch(r, font, color, ly, capX, capY, div1, div2);
+                    if (result)
+                        return result;
+                }
+                else {
+                    const result = tryQuestionMatch(r, font, color, ly, capX, capY, capW, div1, div2);
+                    if (result)
+                        return result;
+                }
+            }
         }
     }
     return null;
 }
-let _lastColorLog = 0;
-function logTopColors(buf, capX, capY) {
+function tryOptionMatch(r, font, color, ly, capX, capY, div1, div2) {
+    var _a;
+    const [t0, t1, t2] = splitByX(r, div1, div2);
+    const texts = [t0, t1, t2];
+    // Full key (with spaces)
+    const key = texts.map(quiz_data_1.normalize).sort().join("|");
+    const answer = quiz_data_1.OPTIONS_MAP.get(key);
+    if (answer) {
+        console.log(`[NHQ-DC] MATCH key="${key}" → "${answer}" ly=${capY + ly} font.h=${font.height} col=${color}`);
+        return buildResult(answer, texts, font, ly, capX, capY, div1, div2);
+    }
+    // Space-stripped fallback
+    const nsKey = texts.map(t => (0, quiz_data_1.normalize)(t).replace(/\s+/g, "")).sort().join("|");
+    const nsAnswer = NOSPACE_MAP.get(nsKey);
+    if (nsAnswer) {
+        console.log(`[NHQ-DC] NOSPACE MATCH nsKey="${nsKey}" → "${nsAnswer}" ly=${capY + ly} font.h=${font.height} col=${color}`);
+        return buildResult(nsAnswer, texts, font, ly, capX, capY, div1, div2);
+    }
+    // Method 2: split r.text by double+ spaces
+    const byGap = r.text.split(/\s{2,}/).map(s => s.trim()).filter(s => s.length > 1 && !NOISE_RE.test(s));
+    if (byGap.length >= 3) {
+        const gapKey = byGap.slice(0, 3).map(quiz_data_1.normalize).sort().join("|");
+        const gapAnswer = (_a = quiz_data_1.OPTIONS_MAP.get(gapKey)) !== null && _a !== void 0 ? _a : NOSPACE_MAP.get(byGap.slice(0, 3).map(t => (0, quiz_data_1.normalize)(t).replace(/\s+/g, "")).sort().join("|"));
+        if (gapAnswer) {
+            console.log(`[NHQ-DC] GAP MATCH → "${gapAnswer}" ly=${capY + ly} font.h=${font.height} col=${color}: "${byGap.slice(0, 3).join(" | ")}"`);
+            return buildResult(gapAnswer, byGap.slice(0, 3), font, ly, capX, capY, div1, div2);
+        }
+    }
+    // Log for diagnostics
+    if (texts.some(t => t.length > 2) || byGap.length > 0) {
+        console.log(`[NHQ-OPT] ly=${capY + ly} font.h=${font.height} col=${color}:`, `pos="${texts.join(" | ")}"`, byGap.length > 1 ? `gap="${byGap.join(" | ")}"` : "", `raw="${r.text}"`);
+    }
+    return null;
+}
+function tryQuestionMatch(r, font, color, ly, capX, capY, capW, div1, div2) {
+    const normQ = (0, quiz_data_1.normalize)(r.text);
+    const answer = quiz_data_1.QUESTION_MAP.get(normQ);
+    if (answer) {
+        console.log(`[NHQ-DC] QUESTION MATCH "${r.text}" → "${answer}" ly=${capY + ly} font.h=${font.height}`);
+        // For a question match we don't have option positions — synthesize a result with no highlight
+        // The caller will show the answer text even without a screen highlight.
+        const syntheticOptions = [{ text: answer, screenX: capX, screenY: capY + ly, screenW: capW }];
+        return { answer, lineHeight: font.height, options: syntheticOptions };
+    }
+    if (r.text.trim().length > 8 && !NOISE_RE.test(r.text)) {
+        console.log(`[NHQ-Q] ly=${capY + ly} font.h=${font.height} col=${color}: "${r.text}"`);
+    }
+    return null;
+}
+function buildResult(answer, texts, font, ly, capX, capY, div1, div2) {
+    const xOffsets = [0, div1, div2];
+    const btnW = div1;
+    return {
+        answer,
+        lineHeight: font.height,
+        options: texts.slice(0, 3).map((text, i) => ({
+            text,
+            screenX: capX + xOffsets[i],
+            screenY: capY + ly - font.basey,
+            screenW: btnW,
+        })),
+    };
+}
+// ─── Diagnostics ──────────────────────────────────────────────────────────────
+let _lastDiag = 0;
+function logDiagnostics(buf, capX, capY, capW) {
     var _a;
     const now = Date.now();
-    if (now - _lastColorLog < 5000)
+    if (now - _lastDiag < 6000)
         return;
-    _lastColorLog = now;
-    const buckets = new Map();
+    _lastDiag = now;
+    const W = buf.width;
+    const H = buf.height;
     const data = buf.data;
+    // Top-8 bright color buckets in the full capture area
+    const buckets = new Map();
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i + 1], b = data[i + 2];
-        if (r < 180 && g < 180 && b < 180)
+        if (r < 150 && g < 150 && b < 150)
             continue;
         const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
         buckets.set(key, ((_a = buckets.get(key)) !== null && _a !== void 0 ? _a : 0) + 1);
     }
-    const top = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-    console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
-}
-// Log which rows have clusters of pixels — finds where the option text lines are.
-function logRowProfile(buf, capX, capY) {
-    try {
-        const W = buf.width;
-        const H = buf.height;
-        const data = buf.data;
-        const grayInfo = [];
-        const orangeInfo = [];
-        for (let y = 0; y < H; y++) {
-            let gray = 0, orange = 0, gMinX = W, gMaxX = 0, oMinX = W, oMaxX = 0;
-            for (let x = 0; x < W; x++) {
-                const i = (y * W + x) * 4;
-                const r = data[i], g = data[i + 1], b = data[i + 2];
-                const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
-                const isOrange = r > 180 && g > 80 && b < 160 && r > g && (r - b) > 60;
-                if (isGray) {
-                    gray++;
-                    gMinX = Math.min(gMinX, x);
-                    gMaxX = Math.max(gMaxX, x);
-                }
-                if (isOrange) {
-                    orange++;
-                    oMinX = Math.min(oMinX, x);
-                    oMaxX = Math.max(oMaxX, x);
-                }
-            }
-            if (gray >= 2)
-                grayInfo.push({ y: capY + y, count: gray, minX: capX + gMinX, maxX: capX + gMaxX });
-            if (orange >= 4)
-                orangeInfo.push({ y: capY + y, count: orange, minX: capX + oMinX, maxX: capX + oMaxX });
+    const topColors = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    console.log(`[NHQ-DC] Bright color buckets (capX=${capX},capY=${capY}):`, topColors.map(([k, n]) => `${k}×${n}`).join("  "));
+    // Per-row bright pixel count — shows where text lives
+    const rowSummary = [];
+    for (let y = 0; y < H; y++) {
+        let cnt = 0;
+        for (let x = 0; x < Math.min(capW, W); x++) {
+            const i = (y * W + x) * 4;
+            if ((data[i] + data[i + 1] + data[i + 2]) / 3 > 120)
+                cnt++;
         }
-        // Top 20 rows by pixel count (text rows have ~5-10px, frame has 40-77px)
-        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 40);
-        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 40);
-        console.log("[NHQ-DC] Top gray rows:", topGray.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
-        console.log("[NHQ-DC] Top orange rows:", topOrange.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
+        if (cnt >= 4)
+            rowSummary.push(`y=${capY + y}(${cnt})`);
     }
-    catch (e) {
-        console.log("[NHQ-DC] logRowProfile error:", e);
-    }
-}
-let _lastOptDump = 0;
-// Focus on y=620-800 (below separator at y=631): sweep + RGB buckets + pixel dump.
-// Also check y=309-620 for completeness. Throttled to 8s.
-function logOptionPixels(buf, capX, capY) {
-    var _a;
-    const now = Date.now();
-    if (now - _lastOptDump < 8000)
-        return;
-    _lastOptDump = now;
-    const W = buf.width;
-    const data = buf.data;
-    const lx0 = 0, lx1 = Math.min(574, W - 1);
-    // Sweep y=309-800 with v>10 threshold — catch absolutely everything non-black
-    const rows = [];
-    for (let sy = 309; sy <= 800; sy++) {
-        const ly = sy - capY;
-        if (ly < 0 || ly >= buf.height)
-            continue;
-        let c80 = 0, c40 = 0, c10 = 0, maxV = 0, minX = capX + lx1, maxX = capX + lx0;
-        for (let lx = lx0; lx <= lx1; lx++) {
-            const i = (ly * W + lx) * 4;
-            const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            if (v > 10) {
-                c10++;
-                minX = Math.min(minX, capX + lx);
-                maxX = Math.max(maxX, capX + lx);
-            }
-            if (v > 40)
-                c40++;
-            if (v > 80)
-                c80++;
-            if (v > maxV)
-                maxV = v;
-        }
-        if (c10 >= 5)
-            rows.push(`y=${sy}(${c80}/${c40}/${c10},max=${Math.round(maxV)},x=${minX}-${maxX})`);
-    }
-    console.log("[NHQ-OPT] v>80/40/10 rows y=309-800:", rows.join(" ") || "(none)");
-    // RGB bucket for y=620-800 (below separator) at v>10 threshold — find option colors
-    console.log("[NHQ-OPT] --- RGB below separator y=620-800 ---");
-    for (let sy = 620; sy <= 800; sy += 10) {
-        const ly = sy - capY;
-        if (ly < 0 || ly >= buf.height)
-            continue;
-        const buckets = new Map();
-        for (let lx = lx0; lx <= lx1; lx++) {
+    console.log("[NHQ-DC] Rows with ≥4 bright pixels (v>120):", rowSummary.join(" ") || "(none)");
+    // Exact RGB of top-20 brightest pixels in the confirmed option area (local y=510-595)
+    const samples = [];
+    for (let ly = OPT_LY0; ly <= OPT_LY1 && ly < H; ly++) {
+        for (let lx = 0; lx < Math.min(Math.floor(capW * 0.72), W); lx++) {
             const i = (ly * W + lx) * 4;
             const r = data[i], g = data[i + 1], b = data[i + 2];
-            if ((r + g + b) / 3 < 10)
-                continue;
-            const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
-            const e = (_a = buckets.get(key)) !== null && _a !== void 0 ? _a : { n: 0, x0: 99999, x1: 0 };
-            e.n++;
-            e.x0 = Math.min(e.x0, capX + lx);
-            e.x1 = Math.max(e.x1, capX + lx);
-            buckets.set(key, e);
+            const v = (r + g + b) / 3;
+            if (v > 100)
+                samples.push({ v, r, g, b, sx: capX + lx, sy: capY + ly });
         }
-        const top = [...buckets.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5);
-        if (top.length > 0)
-            console.log(`[NHQ-OPT] y=${sy}:`, top.map(([k, e]) => `${k}×${e.n}@x=${e.x0}-${e.x1}`).join("  "));
     }
-    // Pixel dump of option area (y=845-915, x=capX to capX+410=x1560 approx)
-    // Options confirmed at y=854-908 x=1150-1554 from gray row analysis
-    console.log("[NHQ-OPT] --- option area pixel dump y=845-915 ---");
-    const DUMP_LX0 = 0, DUMP_LX1 = Math.min(410, W - 1); // x=1150-1560
-    for (let sy = 845; sy <= 915; sy++) {
-        const ly = sy - capY;
-        if (ly < 0 || ly >= buf.height)
-            continue;
-        let row = "";
-        for (let lx = DUMP_LX0; lx <= DUMP_LX1; lx++) {
-            const i = (ly * W + lx) * 4;
-            const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            row += v > 200 ? "#" : v > 140 ? "+" : v > 80 ? "-" : v > 40 ? "~" : v > 10 ? "^" : ".";
-        }
-        console.log(`[NHQ-OPT] y=${sy}: ${row}`);
-    }
-}
-function tryFont(buf, font, color, capX, capY, capW, capH) {
-    const lines = [];
-    // Step through every possible text baseline in the scan region.
-    // Using font.height as step size gives full coverage with no gaps.
-    for (let ly = font.basey; ly < capH - (font.height - font.basey); ly += font.height) {
-        const r = OCR.findReadLine(buf, font, [color], 0, ly, capW - font.width, font.height);
-        if (!r || !r.text.trim() || NOISE_RE.test(r.text))
-            continue;
-        const frags = r.fragments;
-        const x0 = frags.length > 0 ? frags[0].xstart : 0;
-        const x1 = frags.length > 0 ? frags[frags.length - 1].xend : x0 + 60;
-        lines.push({ text: r.text.trim(), localY: ly, x0, x1 });
-    }
-    if (lines.length === 0)
-        return null;
-    // Sliding window: any 3 consecutive lines that form a known option triplet
-    for (let i = 0; i <= lines.length - 3; i++) {
-        const triplet = [lines[i], lines[i + 1], lines[i + 2]];
-        const key = triplet.map(l => (0, quiz_data_1.normalize)(l.text)).sort().join("|");
-        const answer = quiz_data_1.OPTIONS_MAP.get(key);
-        if (!answer)
-            continue;
-        console.log(`[NHQ-DC] Match! answer="${answer}"`, triplet.map(l => `"${l.text}"`));
-        return {
-            answer,
-            lineHeight: font.height,
-            options: triplet.map(l => ({
-                text: l.text,
-                screenX: capX + l.x0,
-                screenY: capY + l.localY - font.basey,
-                screenW: Math.max(l.x1 - l.x0 + 10, 60),
-            })),
-        };
-    }
-    // Force to string so the console doesn't show a lazy Array(N) reference
-    const lineStr = lines.map(l => `"${l.text}" @y=${capY + l.localY - font.basey} x=${capX + l.x0}-${capX + l.x1}`).join(", ");
-    console.log(`[NHQ-DC] ${lines.length} line(s), no triplet match (font.h=${font.height} color=${color}): ${lineStr}`);
-    return null;
+    samples.sort((a, b) => b.v - a.v);
+    console.log("[NHQ-DC] Option area top-20 pixel RGB:", samples.slice(0, 20).map(p => `rgb(${p.r},${p.g},${p.b})@(${p.sx},${p.sy})`).join("  "));
 }
 
 
