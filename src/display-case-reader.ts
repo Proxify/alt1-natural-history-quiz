@@ -143,10 +143,12 @@ function logOptionPixels(buf: ImageData, capX: number, capY: number) {
     if (now - _lastOptDump < 8000) return;
     _lastOptDump = now;
 
-    // Option text confirmed at x=1151-1224 from previous gray-band analysis.
-    // Cover the text panel from capX to capX+250, plus lower threshold to see dim glyphs.
-    const ROWS = [649, 669, 689, 709];
-    const SX0 = capX + 1, SX1 = capX + 250;
+    // The DC can be repositioned by the player. Orange frame detected at x≈1460 (shifted
+    // 412px right from original). Text panel shifts with it: now ~capX+300 to capX+550.
+    // Include confirmed question-text rows (y=309,329 have known gray pixels at x=1639-1666)
+    // so we can see what the actual font glyphs look like, plus the expected option rows.
+    const ROWS = [309, 329, 649, 669, 689, 709];
+    const SX0 = capX + 300, SX1 = capX + 550;
     const lx0 = SX0 - capX, lx1 = SX1 - capX;
     if (lx0 < 0 || lx1 > buf.width) {
         console.log(`[NHQ-OPT] x range ${SX0}-${SX1} out of scan (capX=${capX} w=${buf.width})`);
