@@ -139,56 +139,52 @@ function logRowProfile(buf: ImageData, capX: number, capY: number) {
 
 let _lastOptDump = 0;
 
-// Dump ASCII-art pixel maps for suspected option rows and sweep y=338-700 for bright rows.
-// '#'=bright(>200), '+'=mid(140-200), '-'=dim(80-140), '.'=dark(<80). Throttled to 8s.
+// Full-width diagnostic: sweep entire scan region y=309-700 with x-ranges, then RGB bucket
+// analysis at y=390-550 to find where option text is and what color it is. Throttled to 8s.
 function logOptionPixels(buf: ImageData, capX: number, capY: number) {
     const now = Date.now();
     if (now - _lastOptDump < 8000) return;
     _lastOptDump = now;
 
-    // Text panel is ~capX+300 to capX+550 after DC moved ~412px right.
-    // y=309,329 = confirmed question text; y=429,449,469 = suspected options (OCR found "_"/"~").
-    const ROWS = [309, 329, 429, 449, 469];
-    const SX0 = capX + 300, SX1 = capX + 550;
-    const lx0 = SX0 - capX, lx1 = SX1 - capX;
-    if (lx0 < 0 || lx1 > buf.width) {
-        console.log(`[NHQ-OPT] x range ${SX0}-${SX1} out of scan (capX=${capX} w=${buf.width})`);
-        return;
-    }
     const W = buf.width;
     const data = buf.data;
+    // Full scan width from capX to capX+574
+    const lx0 = 0, lx1 = Math.min(574, W - 1);
 
-    // Sweep y=338-700: report every row that has ≥3 pixels with v>80 (finds dim option text too)
-    const brightRows: string[] = [];
-    for (let sy = 338; sy <= 700; sy++) {
+    // Sweep y=309-700: v>80 and v>40 counts with x-range — tells us WHERE pixels are per row
+    const rows: string[] = [];
+    for (let sy = 309; sy <= 700; sy++) {
         const ly = sy - capY;
         if (ly < 0 || ly >= buf.height) continue;
-        let count = 0, maxV = 0;
+        let c80 = 0, c40 = 0, maxV = 0, minX = capX + lx1, maxX = capX + lx0;
         for (let lx = lx0; lx <= lx1; lx++) {
             const i = (ly * W + lx) * 4;
             const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            if (v > 80) count++;
+            if (v > 40) { c40++; minX = Math.min(minX, capX + lx); maxX = Math.max(maxX, capX + lx); }
+            if (v > 80) c80++;
             if (v > maxV) maxV = v;
         }
-        if (count >= 3) brightRows.push(`y=${sy}(${count}px,max=${Math.round(maxV)})`);
+        if (c40 >= 5) rows.push(`y=${sy}(${c80}/${c40},max=${Math.round(maxV)},x=${minX}-${maxX})`);
     }
-    console.log(`[NHQ-OPT] Bright rows y=338-700 (x=${SX0}-${SX1}):`, brightRows.join(" ") || "(none)");
+    console.log("[NHQ-OPT] v>80/v>40 rows y=309-700:", rows.join(" ") || "(none)");
 
-    // Detailed pixel dump for known/suspected rows
-    for (const sy of ROWS) {
-        const lyMid = sy - capY;
-        for (let dy = -6; dy <= 6; dy++) {
-            const ly = lyMid + dy;
-            if (ly < 0 || ly >= buf.height) continue;
-            let row = "";
-            for (let lx = lx0; lx <= lx1; lx++) {
-                const i = (ly * W + lx) * 4;
-                const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                row += v > 200 ? "#" : v > 140 ? "+" : v > 80 ? "-" : ".";
-            }
-            console.log(`[NHQ-OPT] y=${sy + dy}(${dy >= 0 ? "+" : ""}${dy}): ${row}`);
+    // RGB bucket per row at y=390-550: find the exact color and x-range of option text
+    for (let sy = 390; sy <= 550; sy += 10) {
+        const ly = sy - capY;
+        if (ly < 0 || ly >= buf.height) continue;
+        const buckets = new Map<string, { n: number; x0: number; x1: number }>();
+        for (let lx = lx0; lx <= lx1; lx++) {
+            const i = (ly * W + lx) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            if ((r + g + b) / 3 < 30) continue;
+            const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
+            const e = buckets.get(key) ?? { n: 0, x0: 99999, x1: 0 };
+            e.n++; e.x0 = Math.min(e.x0, capX + lx); e.x1 = Math.max(e.x1, capX + lx);
+            buckets.set(key, e);
         }
-        console.log("[NHQ-OPT] ---");
+        const top = [...buckets.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5);
+        if (top.length > 0)
+            console.log(`[NHQ-OPT] y=${sy}:`, top.map(([k, e]) => `${k}×${e.n}@x=${e.x0}-${e.x1}`).join("  "));
     }
 }
 
