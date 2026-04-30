@@ -8,6 +8,15 @@ const font10 = require("alt1/fonts/aa_10px_mono") as OCR.FontDefinition;
 const font9allcaps = require("alt1/fonts/aa_9px_mono_allcaps") as OCR.FontDefinition;
 const font8allcaps = require("alt1/fonts/aa_8px_mono_allcaps") as OCR.FontDefinition;
 const font8mono = require("alt1/fonts/aa_8px_mono") as OCR.FontDefinition;
+// Chatbox shadow fonts — shadow mode uses lum*col so lum=1.0 pixels behave like non-shadow.
+// Different pixel density/shape from the aa_* fonts; may match Display Case rendering.
+const cbFont22 = require("alt1/fonts/chatbox/22pt") as OCR.FontDefinition;
+const cbFont20 = require("alt1/fonts/chatbox/20pt") as OCR.FontDefinition;
+const cbFont18 = require("alt1/fonts/chatbox/18pt") as OCR.FontDefinition;
+const cbFont16 = require("alt1/fonts/chatbox/16pt") as OCR.FontDefinition;
+const cbFont14 = require("alt1/fonts/chatbox/14pt") as OCR.FontDefinition;
+const cbFont12 = require("alt1/fonts/chatbox/12pt") as OCR.FontDefinition;
+const cbFont10 = require("alt1/fonts/chatbox/10pt") as OCR.FontDefinition;
 
 // Right half of screen center — the Display Case text panel (question + options) is always
 // on the right side of the window. Starting at 46% skips the creature display on the left.
@@ -54,7 +63,10 @@ export function scanDisplayCase(img: a1lib.ImgRef): DisplayCaseResult | null {
     logTopColors(buf, capX, capY);
     logRowProfile(buf, capX, capY);
 
-    for (const font of [font12, font10, font9allcaps, font8allcaps, font8mono]) {
+    for (const font of [
+        font12, font10, font9allcaps, font8allcaps, font8mono,
+        cbFont22, cbFont20, cbFont18, cbFont16, cbFont14, cbFont12, cbFont10,
+    ]) {
         for (const color of COLORS) {
             const result = tryFont(buf, font, color, capX, capY, capW, capH);
             if (result) return result;
