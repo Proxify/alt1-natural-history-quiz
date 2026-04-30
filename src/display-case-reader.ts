@@ -26,7 +26,7 @@ const cbFont10 = require("alt1/fonts/chatbox/10pt") as OCR.FontDefinition;
 const SCAN_X_FRAC = 0.60;
 const SCAN_W_FRAC = 0.30;
 const SCAN_Y_FRAC = 0.28;
-const SCAN_H_FRAC = 0.44;
+const SCAN_H_FRAC = 0.55; // extended: 1106*0.55=608, scan covers y=309-917
 
 // Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
 // Orange (~255,160,40) is the interface frame/border, not the text itself.
@@ -139,8 +139,8 @@ function logRowProfile(buf: ImageData, capX: number, capY: number) {
 
 let _lastOptDump = 0;
 
-// Full-width diagnostic: sweep entire scan region y=309-700 with x-ranges, then RGB bucket
-// analysis at y=390-550 to find where option text is and what color it is. Throttled to 8s.
+// Focus on y=620-800 (below separator at y=631): sweep + RGB buckets + pixel dump.
+// Also check y=309-620 for completeness. Throttled to 8s.
 function logOptionPixels(buf: ImageData, capX: number, capY: number) {
     const now = Date.now();
     if (now - _lastOptDump < 8000) return;
@@ -148,35 +148,36 @@ function logOptionPixels(buf: ImageData, capX: number, capY: number) {
 
     const W = buf.width;
     const data = buf.data;
-    // Full scan width from capX to capX+574
     const lx0 = 0, lx1 = Math.min(574, W - 1);
 
-    // Sweep y=309-700: v>80 and v>40 counts with x-range — tells us WHERE pixels are per row
+    // Sweep y=309-800 with v>10 threshold — catch absolutely everything non-black
     const rows: string[] = [];
-    for (let sy = 309; sy <= 700; sy++) {
+    for (let sy = 309; sy <= 800; sy++) {
         const ly = sy - capY;
         if (ly < 0 || ly >= buf.height) continue;
-        let c80 = 0, c40 = 0, maxV = 0, minX = capX + lx1, maxX = capX + lx0;
+        let c80 = 0, c40 = 0, c10 = 0, maxV = 0, minX = capX + lx1, maxX = capX + lx0;
         for (let lx = lx0; lx <= lx1; lx++) {
             const i = (ly * W + lx) * 4;
             const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-            if (v > 40) { c40++; minX = Math.min(minX, capX + lx); maxX = Math.max(maxX, capX + lx); }
+            if (v > 10) { c10++; minX = Math.min(minX, capX + lx); maxX = Math.max(maxX, capX + lx); }
+            if (v > 40) c40++;
             if (v > 80) c80++;
             if (v > maxV) maxV = v;
         }
-        if (c40 >= 5) rows.push(`y=${sy}(${c80}/${c40},max=${Math.round(maxV)},x=${minX}-${maxX})`);
+        if (c10 >= 5) rows.push(`y=${sy}(${c80}/${c40}/${c10},max=${Math.round(maxV)},x=${minX}-${maxX})`);
     }
-    console.log("[NHQ-OPT] v>80/v>40 rows y=309-700:", rows.join(" ") || "(none)");
+    console.log("[NHQ-OPT] v>80/40/10 rows y=309-800:", rows.join(" ") || "(none)");
 
-    // RGB bucket per row at y=390-550: find the exact color and x-range of option text
-    for (let sy = 390; sy <= 550; sy += 10) {
+    // RGB bucket for y=620-800 (below separator) at v>10 threshold — find option colors
+    console.log("[NHQ-OPT] --- RGB below separator y=620-800 ---");
+    for (let sy = 620; sy <= 800; sy += 10) {
         const ly = sy - capY;
         if (ly < 0 || ly >= buf.height) continue;
         const buckets = new Map<string, { n: number; x0: number; x1: number }>();
         for (let lx = lx0; lx <= lx1; lx++) {
             const i = (ly * W + lx) * 4;
             const r = data[i], g = data[i + 1], b = data[i + 2];
-            if ((r + g + b) / 3 < 30) continue;
+            if ((r + g + b) / 3 < 10) continue;
             const key = `${Math.round(r / 20) * 20},${Math.round(g / 20) * 20},${Math.round(b / 20) * 20}`;
             const e = buckets.get(key) ?? { n: 0, x0: 99999, x1: 0 };
             e.n++; e.x0 = Math.min(e.x0, capX + lx); e.x1 = Math.max(e.x1, capX + lx);
@@ -185,6 +186,22 @@ function logOptionPixels(buf: ImageData, capX: number, capY: number) {
         const top = [...buckets.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 5);
         if (top.length > 0)
             console.log(`[NHQ-OPT] y=${sy}:`, top.map(([k, e]) => `${k}×${e.n}@x=${e.x0}-${e.x1}`).join("  "));
+    }
+
+    // Pixel dump: '#'>200, '+'>140, '-'>80, '~'>40, '^'>10, '.'<=10
+    // Shows y=625-795 in 10px samples to locate option button structure
+    console.log("[NHQ-OPT] --- pixel dump y=625-790 ---");
+    const DUMP_LX0 = 110, DUMP_LX1 = Math.min(574, W - 1); // abs x = capX+110 to capX+574
+    for (let sy = 625; sy <= 790; sy += 5) {
+        const ly = sy - capY;
+        if (ly < 0 || ly >= buf.height) continue;
+        let row = "";
+        for (let lx = DUMP_LX0; lx <= DUMP_LX1; lx++) {
+            const i = (ly * W + lx) * 4;
+            const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
+            row += v > 200 ? "#" : v > 140 ? "+" : v > 80 ? "-" : v > 40 ? "~" : v > 10 ? "^" : ".";
+        }
+        console.log(`[NHQ-OPT] y=${sy}: ${row}`);
     }
 }
 
