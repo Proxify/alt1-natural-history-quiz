@@ -18,10 +18,11 @@ const cbFont14 = require("alt1/fonts/chatbox/14pt") as OCR.FontDefinition;
 const cbFont12 = require("alt1/fonts/chatbox/12pt") as OCR.FontDefinition;
 const cbFont10 = require("alt1/fonts/chatbox/10pt") as OCR.FontDefinition;
 
-// Right half of screen center — the Display Case text panel (question + options) is always
-// on the right side of the window. Starting at 46% skips the creature display on the left.
-const SCAN_X_FRAC = 0.46;
-const SCAN_W_FRAC = 0.18;
+// The Display Case text panel (question + options) sits to the right of the vertical divider.
+// At 1918px width the divider is consistently at x≈1143 (59.6%). Starting at 60% puts us
+// just past the divider; 0.30 width covers the full text panel to x≈1726.
+const SCAN_X_FRAC = 0.60;
+const SCAN_W_FRAC = 0.30;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 
