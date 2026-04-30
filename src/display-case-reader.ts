@@ -82,45 +82,40 @@ function logTopColors(buf: ImageData, capX: number, capY: number) {
     console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
 }
 
-// Log which rows have clusters of gray/white pixels — these rows contain the option text.
+// Log which rows have clusters of pixels — finds where the option text lines are.
 function logRowProfile(buf: ImageData, capX: number, capY: number) {
-    const W = buf.width;
-    const H = buf.height;
-    const data = buf.data;
+    try {
+        const W = buf.width;
+        const H = buf.height;
+        const data = buf.data;
 
-    // Count gray-ish pixels (r≈g≈b, all >140) and orange pixels per row
-    const grayRows: number[] = [];
-    const orangeRows: number[] = [];
-    for (let y = 0; y < H; y++) {
-        let gray = 0, orange = 0;
-        for (let x = 0; x < W; x++) {
-            const i = (y * W + x) * 4;
-            const r = data[i], g = data[i + 1], b = data[i + 2];
-            const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
-            const isOrange = r > 200 && g > 100 && g < 200 && b < 80;
-            if (isGray) gray++;
-            if (isOrange) orange++;
+        interface RowInfo { y: number; count: number; minX: number; maxX: number; }
+        const grayInfo: RowInfo[] = [];
+        const orangeInfo: RowInfo[] = [];
+
+        for (let y = 0; y < H; y++) {
+            let gray = 0, orange = 0, gMinX = W, gMaxX = 0, oMinX = W, oMaxX = 0;
+            for (let x = 0; x < W; x++) {
+                const i = (y * W + x) * 4;
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
+                const isOrange = r > 200 && g > 100 && g < 200 && b < 80;
+                if (isGray) { gray++; gMinX = Math.min(gMinX, x); gMaxX = Math.max(gMaxX, x); }
+                if (isOrange) { orange++; oMinX = Math.min(oMinX, x); oMaxX = Math.max(oMaxX, x); }
+            }
+            if (gray >= 2) grayInfo.push({ y: capY + y, count: gray, minX: capX + gMinX, maxX: capX + gMaxX });
+            if (orange >= 4) orangeInfo.push({ y: capY + y, count: orange, minX: capX + oMinX, maxX: capX + oMaxX });
         }
-        if (gray >= 3) grayRows.push(capY + y);
-        if (orange >= 5) orangeRows.push(capY + y);
-    }
 
-    // Compress consecutive runs into ranges
-    function compress(rows: number[]): string {
-        if (rows.length === 0) return "(none)";
-        const ranges: string[] = [];
-        let start = rows[0], prev = rows[0];
-        for (const r of rows.slice(1)) {
-            if (r === prev + 1) { prev = r; continue; }
-            ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
-            start = prev = r;
-        }
-        ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
-        return ranges.join(" ");
-    }
+        // Top 8 rows by pixel count
+        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 8);
+        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 8);
 
-    console.log(`[NHQ-DC] Gray rows (≥3px):`, compress(grayRows));
-    console.log(`[NHQ-DC] Orange rows (≥5px):`, compress(orangeRows));
+        console.log("[NHQ-DC] Top gray rows:", topGray.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
+        console.log("[NHQ-DC] Top orange rows:", topOrange.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
+    } catch (e) {
+        console.log("[NHQ-DC] logRowProfile error:", e);
+    }
 }
 
 function tryFont(
@@ -175,7 +170,7 @@ function tryFont(
     console.log(
         `[NHQ-DC] ${lines.length} line(s), no triplet match`,
         `(font.h=${font.height} color=${color}):`,
-        lines.map(l => `"${l.text}"`),
+        lines.map(l => `"${l.text}" @y=${capY + l.localY - font.basey} x=${capX + l.x0}-${capX + l.x1}`),
     );
     return null;
 }
