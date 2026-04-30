@@ -8,6 +8,8 @@ const font10 = require("alt1/fonts/aa_10px_mono") as OCR.FontDefinition;
 const font9allcaps = require("alt1/fonts/aa_9px_mono_allcaps") as OCR.FontDefinition;
 const font8allcaps = require("alt1/fonts/aa_8px_mono_allcaps") as OCR.FontDefinition;
 const font8mono = require("alt1/fonts/aa_8px_mono") as OCR.FontDefinition;
+// aa_8px is shadow=true and proportional (93 chars) — distinct from aa_8px_mono.
+const font8 = require("alt1/fonts/aa_8px") as OCR.FontDefinition;
 // Chatbox shadow fonts — shadow mode uses lum*col so lum=1.0 pixels behave like non-shadow.
 // Different pixel density/shape from the aa_* fonts; may match Display Case rendering.
 const cbFont22 = require("alt1/fonts/chatbox/22pt") as OCR.FontDefinition;
@@ -63,9 +65,10 @@ export function scanDisplayCase(img: a1lib.ImgRef): DisplayCaseResult | null {
 
     logTopColors(buf, capX, capY);
     logRowProfile(buf, capX, capY);
+    logOptionPixels(buf, capX, capY);
 
     for (const font of [
-        font12, font10, font9allcaps, font8allcaps, font8mono,
+        font12, font10, font9allcaps, font8allcaps, font8mono, font8,
         cbFont22, cbFont20, cbFont18, cbFont16, cbFont14, cbFont12, cbFont10,
     ]) {
         for (const color of COLORS) {
@@ -128,6 +131,43 @@ function logRowProfile(buf: ImageData, capX: number, capY: number) {
         console.log("[NHQ-DC] Top orange rows:", topOrange.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
     } catch (e) {
         console.log("[NHQ-DC] logRowProfile error:", e);
+    }
+}
+
+let _lastOptDump = 0;
+
+// Dump ASCII-art pixel maps for the three option rows so we can identify the font.
+// '#'=bright(>200), '+'=mid(120-200), '.'=dark(<120). Throttled to 8s.
+function logOptionPixels(buf: ImageData, capX: number, capY: number) {
+    const now = Date.now();
+    if (now - _lastOptDump < 8000) return;
+    _lastOptDump = now;
+
+    // Option rows confirmed at screen y≈649,669,689,709 (20px apart).
+    // Dump 13 rows centred on each baseline, x=1260-1400 (covers detected x=1283-1309 + margin).
+    const ROWS = [649, 669, 689, 709];
+    const SX0 = 1260, SX1 = 1400;
+    const lx0 = SX0 - capX, lx1 = SX1 - capX;
+    if (lx0 < 0 || lx1 > buf.width) {
+        console.log(`[NHQ-OPT] x range ${SX0}-${SX1} out of scan (capX=${capX} w=${buf.width})`);
+        return;
+    }
+    const W = buf.width;
+    const data = buf.data;
+    for (const sy of ROWS) {
+        const lyMid = sy - capY;
+        for (let dy = -6; dy <= 6; dy++) {
+            const ly = lyMid + dy;
+            if (ly < 0 || ly >= buf.height) continue;
+            let row = "";
+            for (let lx = lx0; lx <= lx1; lx++) {
+                const i = (ly * W + lx) * 4;
+                const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                row += v > 200 ? "#" : v > 120 ? "+" : ".";
+            }
+            console.log(`[NHQ-OPT] y=${sy + dy}(${dy >= 0 ? "+" : ""}${dy}): ${row}`);
+        }
+        console.log("[NHQ-OPT] ---");
     }
 }
 
