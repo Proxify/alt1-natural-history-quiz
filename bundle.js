@@ -60,10 +60,11 @@ const cbFont16 = __webpack_require__(/*! alt1/fonts/chatbox/16pt */ "./node_modu
 const cbFont14 = __webpack_require__(/*! alt1/fonts/chatbox/14pt */ "./node_modules/alt1/dist/fonts/chatbox/14pt.js");
 const cbFont12 = __webpack_require__(/*! alt1/fonts/chatbox/12pt */ "./node_modules/alt1/dist/fonts/chatbox/12pt.js");
 const cbFont10 = __webpack_require__(/*! alt1/fonts/chatbox/10pt */ "./node_modules/alt1/dist/fonts/chatbox/10pt.js");
-// Right half of screen center — the Display Case text panel (question + options) is always
-// on the right side of the window. Starting at 46% skips the creature display on the left.
-const SCAN_X_FRAC = 0.46;
-const SCAN_W_FRAC = 0.18;
+// The Display Case text panel (question + options) sits to the right of the vertical divider.
+// At 1918px width the divider is consistently at x≈1143 (59.6%). Starting at 60% puts us
+// just past the divider; 0.30 width covers the full text panel to x≈1726.
+const SCAN_X_FRAC = 0.60;
+const SCAN_W_FRAC = 0.30;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 // Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
