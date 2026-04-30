@@ -68,7 +68,7 @@ const cbFont10 = __webpack_require__(/*! alt1/fonts/chatbox/10pt */ "./node_modu
 const SCAN_X_FRAC = 0.60;
 const SCAN_W_FRAC = 0.30;
 const SCAN_Y_FRAC = 0.28;
-const SCAN_H_FRAC = 0.55; // extended: 1106*0.55=608, scan covers y=309-917
+const SCAN_H_FRAC = 0.60; // extended: 1106*0.60=664, scan covers y=309-973
 // Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
 // Orange (~255,160,40) is the interface frame/border, not the text itself.
 // Warm gold [240,200,120] and warm cream [200,180,140] added — may be option text/button color.
@@ -228,11 +228,11 @@ function logOptionPixels(buf, capX, capY) {
         if (top.length > 0)
             console.log(`[NHQ-OPT] y=${sy}:`, top.map(([k, e]) => `${k}×${e.n}@x=${e.x0}-${e.x1}`).join("  "));
     }
-    // Pixel dump: '#'>200, '+'>140, '-'>80, '~'>40, '^'>10, '.'<=10
-    // Shows y=625-795 in 10px samples to locate option button structure
-    console.log("[NHQ-OPT] --- pixel dump y=625-790 ---");
-    const DUMP_LX0 = 110, DUMP_LX1 = Math.min(574, W - 1); // abs x = capX+110 to capX+574
-    for (let sy = 625; sy <= 790; sy += 5) {
+    // Pixel dump of option area (y=845-915, x=capX to capX+410=x1560 approx)
+    // Options confirmed at y=854-908 x=1150-1554 from gray row analysis
+    console.log("[NHQ-OPT] --- option area pixel dump y=845-915 ---");
+    const DUMP_LX0 = 0, DUMP_LX1 = Math.min(410, W - 1); // x=1150-1560
+    for (let sy = 845; sy <= 915; sy++) {
         const ly = sy - capY;
         if (ly < 0 || ly >= buf.height)
             continue;
