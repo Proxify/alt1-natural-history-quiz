@@ -50,20 +50,22 @@ const font12 = __webpack_require__(/*! alt1/fonts/aa_12px_mono */ "./node_module
 const font10 = __webpack_require__(/*! alt1/fonts/aa_10px_mono */ "./node_modules/alt1/dist/fonts/aa_10px_mono.js");
 const font9allcaps = __webpack_require__(/*! alt1/fonts/aa_9px_mono_allcaps */ "./node_modules/alt1/dist/fonts/aa_9px_mono_allcaps.js");
 const font8allcaps = __webpack_require__(/*! alt1/fonts/aa_8px_mono_allcaps */ "./node_modules/alt1/dist/fonts/aa_8px_mono_allcaps.js");
+const font8mono = __webpack_require__(/*! alt1/fonts/aa_8px_mono */ "./node_modules/alt1/dist/fonts/aa_8px_mono.js");
 // Right half of screen center — the Display Case text panel (question + options) is always
 // on the right side of the window. Starting at 46% skips the creature display on the left.
 const SCAN_X_FRAC = 0.46;
 const SCAN_W_FRAC = 0.18;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
-// Display Case option text is golden-orange (~255,160,40 observed via color diagnostic).
-// White variants kept as fallback in case question text differs.
+// Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
+// Orange (~255,160,40) is the interface frame/border, not the text itself.
 const COLORS = [
+    [255, 255, 255],
+    [220, 220, 220],
+    [200, 200, 200],
+    [240, 240, 240],
     [255, 160, 40],
     [255, 144, 20],
-    [255, 176, 60],
-    [255, 255, 255],
-    [240, 225, 205],
 ];
 // Noise-only strings returned by OCR when it finds bright pixels but no char match
 const NOISE_RE = /^[*!\s]+$/;
@@ -76,7 +78,8 @@ function scanDisplayCase(img) {
     const capH = Math.floor(sh * SCAN_H_FRAC);
     const buf = img.toData(capX, capY, capW, capH);
     logTopColors(buf, capX, capY);
-    for (const font of [font12, font10, font9allcaps, font8allcaps]) {
+    logRowProfile(buf, capX, capY);
+    for (const font of [font12, font10, font9allcaps, font8allcaps, font8mono]) {
         for (const color of COLORS) {
             const result = tryFont(buf, font, color, capX, capY, capW, capH);
             if (result)
@@ -103,6 +106,51 @@ function logTopColors(buf, capX, capY) {
     }
     const top = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
     console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
+}
+// Log which rows have clusters of gray/white pixels — these rows contain the option text.
+function logRowProfile(buf, capX, capY) {
+    const W = buf.width;
+    const H = buf.height;
+    const data = buf.data;
+    // Count gray-ish pixels (r≈g≈b, all >140) and orange pixels per row
+    const grayRows = [];
+    const orangeRows = [];
+    for (let y = 0; y < H; y++) {
+        let gray = 0, orange = 0;
+        for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
+            const isOrange = r > 200 && g > 100 && g < 200 && b < 80;
+            if (isGray)
+                gray++;
+            if (isOrange)
+                orange++;
+        }
+        if (gray >= 3)
+            grayRows.push(capY + y);
+        if (orange >= 5)
+            orangeRows.push(capY + y);
+    }
+    // Compress consecutive runs into ranges
+    function compress(rows) {
+        if (rows.length === 0)
+            return "(none)";
+        const ranges = [];
+        let start = rows[0], prev = rows[0];
+        for (const r of rows.slice(1)) {
+            if (r === prev + 1) {
+                prev = r;
+                continue;
+            }
+            ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
+            start = prev = r;
+        }
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
+        return ranges.join(" ");
+    }
+    console.log(`[NHQ-DC] Gray rows (≥3px):`, compress(grayRows));
+    console.log(`[NHQ-DC] Orange rows (≥5px):`, compress(orangeRows));
 }
 function tryFont(buf, font, color, capX, capY, capW, capH) {
     const lines = [];
@@ -2721,6 +2769,78 @@ module.exports = /*#__PURE__*/JSON.parse('{"chars":[{"width":3,"bonus":45,"chr":
 /******/ 	// Load entry module and return exports
 /******/ 	// This entry module doesn't tell about it's top-level declarations so it can't be inlined
 /******/ 	var __nested_webpack_exports__ = __nested_webpack_require_30652__("./src/fonts/aa_12px_mono.fontmeta.json");
+/******/ 	
+/******/ 	return __nested_webpack_exports__;
+/******/ })()
+;
+});
+
+/***/ },
+
+/***/ "./node_modules/alt1/dist/fonts/aa_8px_mono.js"
+/*!*****************************************************!*\
+  !*** ./node_modules/alt1/dist/fonts/aa_8px_mono.js ***!
+  \*****************************************************/
+(module) {
+
+(function webpackUniversalModuleDefinition(root, factory) {
+	if(true)
+		module.exports = factory();
+	else // removed by dead control flow
+{}
+})(globalThis, () => {
+return /******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+/******/ 	var __webpack_modules__ = ({
+
+/***/ "./src/fonts/aa_8px_mono.fontmeta.json"
+/*!*********************************************!*\
+  !*** ./src/fonts/aa_8px_mono.fontmeta.json ***!
+  \*********************************************/
+(module) {
+
+module.exports = /*#__PURE__*/JSON.parse('{"chars":[{"width":7,"bonus":75,"chr":"a","pixels":[0,7,187,1,3,221,1,6,170,1,8,255,2,3,255,2,5,187,2,8,255,3,3,255,3,5,255,3,8,221,4,4,238,4,5,255,4,6,204,4,7,255,4,8,238],"secondary":false},{"width":7,"bonus":105,"chr":"b","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,3,204,1,4,170,1,7,170,1,8,187,2,3,255,2,8,255,3,3,255,3,8,255,4,3,170,4,4,170,4,7,170,5,5,187,5,6,187],"secondary":false},{"width":7,"bonus":50,"chr":"c","pixels":[0,5,170,0,6,187,1,4,187,1,7,187,2,3,255,2,8,255,3,3,255,3,8,255,4,3,221,4,8,221],"secondary":false},{"width":7,"bonus":105,"chr":"d","pixels":[0,5,187,0,6,187,1,4,170,1,7,170,1,8,170,2,3,255,2,8,255,3,3,255,3,8,255,4,3,204,4,4,170,4,7,170,4,8,187,5,1,204,5,2,221,5,3,221,5,4,221,5,5,221,5,6,221,5,7,221,5,8,204],"secondary":false},{"width":7,"bonus":75,"chr":"e","pixels":[0,5,187,0,6,170,1,4,187,1,5,255,1,7,204,2,3,255,2,5,255,2,8,255,3,3,255,3,5,255,3,8,255,4,3,187,4,5,255,4,8,221,5,5,204],"secondary":false},{"width":4,"bonus":50,"chr":"f","pixels":[0,3,204,1,2,221,1,3,255,1,4,221,1,5,221,1,6,221,1,7,221,1,8,204,2,1,255,2,3,255],"secondary":false},{"width":7,"bonus":115,"chr":"g","pixels":[0,5,187,0,6,187,1,3,170,1,4,153,1,7,170,1,11,153,2,3,255,2,8,255,2,11,238,3,3,255,3,8,255,3,11,221,4,3,221,4,7,153,4,8,221,4,10,204,5,3,204,5,4,221,5,5,221,5,6,221,5,7,221,5,8,221,5,9,170],"secondary":false},{"width":7,"bonus":90,"chr":"h","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,3,170,1,4,204,2,3,255,3,3,255,4,3,170,4,4,221,4,5,221,4,6,221,4,7,221,4,8,204],"secondary":false},{"width":3,"bonus":35,"chr":"i","pixels":[0,1,238,0,3,204,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204],"secondary":false},{"width":4,"bonus":50,"chr":"j","pixels":[0,11,153,1,11,170,2,1,204,2,3,204,2,4,221,2,5,221,2,6,221,2,7,221,2,8,221,2,9,221],"secondary":false},{"width":6,"bonus":70,"chr":"k","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,5,255,2,4,153,2,5,255,2,6,221,3,3,204,3,7,221],"secondary":false},{"width":3,"bonus":40,"chr":"l","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,1,8,255],"secondary":false},{"width":10,"bonus":115,"chr":"m","pixels":[0,3,204,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,4,221,2,3,238,3,3,255,4,3,153,4,4,255,4,5,221,4,6,221,4,7,221,4,8,204,5,4,187,6,3,255,7,3,238,8,4,170,8,5,221,8,6,221,8,7,221,8,8,204],"secondary":false},{"width":7,"bonus":75,"chr":"n","pixels":[0,3,204,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,4,221,2,3,238,3,3,255,4,3,238,5,4,170,5,5,221,5,6,221,5,7,221,5,8,204],"secondary":false},{"width":8,"bonus":70,"chr":"o","pixels":[0,5,187,0,6,170,1,4,204,1,7,221,2,3,238,2,8,238,3,3,255,3,8,255,4,3,238,4,8,255,5,4,204,5,7,221,6,5,170,6,6,170],"secondary":false},{"width":6,"bonus":90,"chr":"p","pixels":[0,3,238,0,4,255,0,5,187,0,6,204,0,7,255,0,8,221,0,9,221,0,10,221,1,3,255,1,8,238,2,3,255,2,8,255,3,3,238,3,8,238,4,4,238,4,5,255,4,6,255,4,7,238],"secondary":false},{"width":7,"bonus":90,"chr":"q","pixels":[0,5,187,0,6,187,1,3,170,1,4,153,1,7,153,1,8,170,2,3,255,2,8,255,3,3,238,3,8,238,4,3,255,4,4,255,4,5,187,4,6,187,4,7,255,4,8,238,4,9,221,4,10,221],"secondary":false},{"width":4,"bonus":45,"chr":"r","pixels":[0,3,204,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,3,187,1,4,204,2,3,255],"secondary":false},{"width":6,"bonus":50,"chr":"s","pixels":[0,4,187,1,3,255,1,5,238,1,8,255,2,3,255,2,8,255,3,3,255,3,6,238,3,8,255,4,7,187],"secondary":false},{"width":5,"bonus":45,"chr":"t","pixels":[1,2,221,1,3,255,1,4,221,1,5,221,1,6,221,1,7,170,2,3,255,2,8,238,3,8,153],"secondary":false},{"width":6,"bonus":70,"chr":"u","pixels":[0,3,204,0,4,221,0,5,221,0,6,221,0,7,170,1,8,238,2,8,255,3,8,204,4,3,204,4,4,221,4,5,221,4,6,204,4,7,255,4,8,221],"secondary":false},{"width":6,"bonus":50,"chr":"v","pixels":[0,3,238,1,5,238,1,6,204,2,7,255,2,8,255,3,5,153,3,6,255,3,7,153,4,3,238,4,4,204],"secondary":false},{"width":10,"bonus":95,"chr":"w","pixels":[1,3,153,1,4,238,1,5,187,2,6,153,2,7,238,2,8,187,3,6,204,3,7,238,3,8,153,4,3,170,4,4,255,5,4,221,5,5,221,6,7,255,6,8,221,7,6,238,7,7,204,8,3,238,8,4,204],"secondary":false},{"width":6,"bonus":55,"chr":"x","pixels":[0,8,170,1,3,170,1,4,204,1,7,221,2,5,255,2,6,238,3,4,255,3,6,187,3,7,187,4,3,221,4,8,255],"secondary":false},{"width":6,"bonus":65,"chr":"y","pixels":[0,3,255,0,4,153,0,11,221,1,5,204,1,6,221,1,11,187,2,7,187,2,8,255,2,9,238,3,6,238,3,7,187,4,3,204,4,4,221],"secondary":false},{"width":6,"bonus":70,"chr":"z","pixels":[0,3,153,0,8,204,1,3,255,1,7,221,1,8,255,2,3,255,2,6,255,2,8,255,3,3,255,3,4,170,3,5,170,3,8,255,4,3,255,4,8,255],"secondary":false},{"width":8,"bonus":85,"chr":"A","pixels":[0,8,153,1,6,221,1,7,238,2,3,170,2,4,255,2,5,187,2,6,255,3,1,255,3,2,255,3,6,255,4,2,255,4,3,238,4,6,255,5,5,255,5,6,255,6,7,187,6,8,255],"secondary":false},{"width":7,"bonus":125,"chr":"B","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,4,255,1,8,255,2,1,255,2,4,255,2,8,255,3,1,255,3,4,255,3,8,255,4,1,221,4,4,255,4,5,170,4,8,204,5,2,170,5,3,170,5,6,187,5,7,153],"secondary":false},{"width":9,"bonus":80,"chr":"C","pixels":[0,4,187,0,5,187,1,2,221,1,3,153,1,6,153,1,7,204,2,1,170,2,8,170,3,1,255,3,8,255,4,1,255,4,8,255,5,1,255,5,8,255,6,1,170,6,8,170],"secondary":false},{"width":8,"bonus":100,"chr":"D","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,8,255,2,1,255,2,8,255,3,1,255,3,8,255,4,1,204,4,8,204,5,2,221,5,7,221,6,4,187,6,5,187],"secondary":false},{"width":6,"bonus":95,"chr":"E","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,5,255,1,8,255,2,1,255,2,5,255,2,8,255,3,1,255,3,5,255,3,8,255,4,1,153,4,8,221],"secondary":false},{"width":6,"bonus":70,"chr":"F","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,5,255,2,1,255,2,5,255,3,1,255,3,5,255],"secondary":false},{"width":9,"bonus":105,"chr":"G","pixels":[0,4,170,0,5,187,1,2,204,1,3,153,1,7,221,2,1,170,2,8,187,3,1,255,3,8,255,4,1,255,4,8,255,5,1,255,5,8,238,6,1,170,6,5,255,6,7,153,6,8,170,7,5,153,7,6,221,7,7,221,7,8,204],"secondary":false},{"width":8,"bonus":105,"chr":"H","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,5,255,2,5,255,3,5,255,4,5,255,5,5,255,6,1,204,6,2,221,6,3,221,6,4,221,6,5,221,6,6,221,6,7,221,6,8,204],"secondary":false},{"width":4,"bonus":60,"chr":"I","pixels":[0,1,192,0,8,191,1,1,255,1,2,255,1,3,255,1,4,255,1,5,255,1,6,255,1,7,255,1,8,255,2,1,192,2,8,191],"secondary":false},{"width":6,"bonus":70,"chr":"J","pixels":[0,6,153,0,7,153,1,8,204,2,1,221,2,8,255,3,1,255,3,8,204,4,1,204,4,2,221,4,3,221,4,4,221,4,5,221,4,6,221,4,7,153],"secondary":false},{"width":7,"bonus":85,"chr":"K","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,4,255,2,4,255,3,3,221,3,5,170,3,6,204,4,1,204,4,2,153,4,7,238,4,8,153],"secondary":false},{"width":6,"bonus":60,"chr":"L","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,8,255,2,8,255,3,8,255,4,8,255],"secondary":false},{"width":9,"bonus":130,"chr":"M","pixels":[0,1,245,0,2,255,0,3,255,0,4,255,0,5,255,0,6,255,0,7,255,0,8,255,1,2,170,1,3,225,2,4,207,2,5,190,3,6,232,4,6,232,5,4,207,5,5,190,6,2,170,6,3,224,7,1,245,7,2,255,7,3,255,7,4,255,7,5,255,7,6,255,7,7,255,7,8,255],"secondary":false},{"width":8,"bonus":110,"chr":"N","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,2,255,2,3,221,3,4,187,3,5,187,4,6,221,5,7,255,6,1,204,6,2,221,6,3,221,6,4,221,6,5,221,6,6,221,6,7,221,6,8,204],"secondary":false},{"width":10,"bonus":110,"chr":"O","pixels":[0,4,187,0,5,170,1,2,204,1,3,153,1,6,170,1,7,204,2,1,153,2,8,153,3,1,255,3,8,255,4,1,255,4,8,255,5,1,255,5,8,255,6,1,153,6,8,153,7,2,204,7,3,153,7,6,170,7,7,204,8,4,187,8,5,170],"secondary":false},{"width":7,"bonus":85,"chr":"P","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,5,255,2,1,255,2,5,255,3,1,255,3,5,255,4,1,187,4,5,187,5,3,221],"secondary":false},{"width":9,"bonus":100,"chr":"Q","pixels":[0,4,187,0,5,187,1,2,221,1,6,153,1,7,221,2,1,187,2,8,170,3,1,255,3,8,255,4,1,255,4,8,255,5,1,238,5,8,238,6,2,204,6,7,255,7,3,255,7,4,204,7,5,221,7,6,255,7,8,204],"secondary":false},{"width":7,"bonus":100,"chr":"R","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,1,255,1,5,255,2,1,255,2,5,255,3,1,255,3,5,255,3,6,187,4,2,238,4,3,204,4,4,255,4,7,238,4,8,170],"secondary":false},{"width":6,"bonus":70,"chr":"S","pixels":[0,2,153,0,3,170,1,1,204,1,4,221,1,8,238,2,1,255,2,4,170,2,8,255,3,1,255,3,5,255,3,8,255,4,1,170,4,6,221,4,7,238],"secondary":false},{"width":8,"bonus":65,"chr":"T","pixels":[0,1,255,1,1,255,2,1,255,3,1,255,3,2,221,3,3,221,3,4,221,3,5,221,3,6,221,3,7,221,3,8,204,4,1,255,5,1,255],"secondary":false},{"width":8,"bonus":85,"chr":"U","pixels":[0,1,204,0,2,221,0,3,221,0,4,221,0,5,221,0,6,187,1,7,170,2,8,255,3,8,255,4,8,221,5,1,204,5,2,221,5,3,221,5,4,221,5,5,221,5,6,255,5,7,238],"secondary":false},{"width":7,"bonus":70,"chr":"V","pixels":[0,1,255,0,2,187,1,3,153,1,4,255,1,5,153,2,6,187,2,7,238,3,7,255,3,8,204,4,4,204,4,5,238,5,1,170,5,2,255,5,3,153],"secondary":false},{"width":10,"bonus":125,"chr":"W","pixels":[0,1,255,0,2,221,1,4,187,1,5,255,1,6,204,2,7,255,2,8,255,3,3,153,3,4,238,3,5,221,4,1,255,4,2,255,4,3,153,5,3,170,5,4,238,5,5,204,6,7,255,6,8,255,7,4,153,7,5,238,7,6,238,7,7,153,8,1,238,8,2,238,8,3,153],"secondary":false},{"width":7,"bonus":75,"chr":"X","pixels":[0,8,170,1,1,187,1,2,204,1,7,238,2,3,221,2,4,153,2,5,255,2,6,153,3,4,255,3,5,238,4,2,238,4,6,204,4,7,170,5,1,204,5,8,255],"secondary":false},{"width":7,"bonus":55,"chr":"Y","pixels":[0,1,170,1,2,238,2,3,153,2,4,255,3,4,221,3,5,204,3,6,221,3,7,221,3,8,204,4,3,255,5,1,238],"secondary":false},{"width":7,"bonus":75,"chr":"Z","pixels":[0,8,187,1,1,255,1,7,221,1,8,255,2,1,255,2,5,204,2,8,255,3,1,255,3,4,204,3,8,255,4,1,255,4,2,221,4,8,255,5,1,187,5,8,153],"secondary":false},{"width":7,"bonus":90,"chr":"0","pixels":[0,2,153,0,3,221,0,4,255,0,5,255,0,6,238,0,7,170,1,1,187,1,8,204,2,1,187,2,8,187,3,1,221,3,8,204,4,2,170,4,3,255,4,4,187,4,5,187,4,6,238,4,7,170],"secondary":false},{"width":7,"bonus":50,"chr":"1","pixels":[1,8,187,2,1,204,2,2,204,2,3,187,2,4,187,2,5,187,2,6,187,2,7,187,2,8,238,3,8,204],"secondary":false},{"width":7,"bonus":55,"chr":"2","pixels":[1,8,255,2,1,187,2,6,153,2,8,187,3,1,204,3,5,153,3,8,187,4,1,187,4,2,153,4,4,204,4,8,187],"secondary":false},{"width":7,"bonus":50,"chr":"3","pixels":[0,8,204,1,1,187,1,8,187,2,1,187,2,4,187,2,8,204,3,2,221,3,3,204,3,5,204,3,7,170],"secondary":false},{"width":7,"bonus":80,"chr":"4","pixels":[0,6,238,1,4,187,1,6,187,2,3,170,2,6,187,3,1,187,3,2,153,3,6,204,4,1,187,4,2,187,4,3,187,4,4,187,4,5,187,4,6,238,4,7,187,4,8,187],"secondary":false},{"width":7,"bonus":70,"chr":"5","pixels":[1,1,238,1,2,187,1,3,187,1,4,187,1,8,204,2,1,187,2,4,187,2,8,187,3,1,187,3,4,204,3,8,204,4,5,238,4,6,187,4,7,221],"secondary":false},{"width":7,"bonus":80,"chr":"6","pixels":[0,3,170,0,4,255,0,5,255,0,6,238,0,7,153,1,2,187,1,8,187,2,1,204,2,4,187,2,8,187,3,1,187,3,4,204,3,8,187,4,5,221,4,6,255,4,7,187],"secondary":false},{"width":7,"bonus":55,"chr":"7","pixels":[0,1,187,1,1,187,1,8,204,2,1,187,2,6,238,2,7,153,3,1,187,3,3,153,3,4,221,4,1,255,4,2,187],"secondary":false},{"width":7,"bonus":95,"chr":"8","pixels":[1,2,238,1,3,221,1,6,204,1,7,221,2,1,204,2,4,204,2,5,170,2,8,221,3,1,187,3,4,170,3,8,187,4,1,221,4,4,170,4,5,204,4,8,187,5,2,170,5,3,153,5,6,238,5,7,238],"secondary":false},{"width":7,"bonus":85,"chr":"9","pixels":[1,2,221,1,3,187,1,4,238,1,8,153,2,1,204,2,5,221,2,8,187,3,1,187,3,5,187,3,8,204,4,1,187,4,7,170,5,2,153,5,3,238,5,4,255,5,5,255,5,6,187],"secondary":false},{"width":8,"bonus":75,"chr":"%","pixels":[0,3,255,0,8,255,1,2,255,1,4,255,1,7,255,2,3,255,2,6,255,3,5,255,4,4,255,4,7,255,5,3,255,5,6,255,5,8,255,6,2,255,6,7,255],"secondary":false},{"width":4,"bonus":40,"chr":"/","pixels":[0,7,153,0,8,238,0,9,221,1,4,187,1,5,238,1,6,170,2,1,221,2,2,221],"secondary":false},{"width":7,"bonus":60,"chr":"+","pixels":[0,5,221,1,5,255,2,5,255,3,2,153,3,3,221,3,4,221,3,5,255,3,6,221,3,7,221,3,8,204,4,5,255,5,5,255],"secondary":false},{"width":5,"bonus":40,"chr":"?","pixels":[0,1,170,1,1,255,1,6,221,1,8,255,2,1,255,2,5,170,3,2,255,3,3,221],"secondary":false},{"width":2,"bonus":35,"chr":"!","pixels":[0,1,170,0,2,187,0,3,187,0,4,187,0,5,187,0,6,170,0,8,255],"secondary":false},{"width":8,"bonus":130,"chr":"@","pixels":[0,4,255,0,5,255,0,6,221,0,7,255,0,8,187,1,3,221,1,9,238,2,2,221,2,5,255,2,6,238,2,7,255,2,10,153,3,2,255,3,4,255,3,8,204,3,10,187,4,2,238,4,4,255,4,8,255,5,3,238,5,4,255,5,5,221,5,6,221,5,7,221,5,8,238,6,8,221],"secondary":false},{"width":8,"bonus":120,"chr":"#","pixels":[0,6,255,1,3,255,1,6,255,1,7,170,1,8,238,2,1,170,2,2,238,2,3,255,2,4,221,2,5,170,2,6,255,3,3,255,3,6,255,4,3,255,4,4,153,4,5,204,4,6,255,4,7,238,4,8,187,5,1,255,5,2,187,5,3,255,5,6,255,6,3,255],"secondary":false},{"width":6,"bonus":70,"chr":"$","pixels":[0,2,153,0,3,170,1,1,204,1,4,221,1,8,238,2,0,204,2,1,238,2,8,238,2,9,204,3,1,238,3,5,238,3,8,255,4,6,170,4,7,170],"secondary":false},{"width":6,"bonus":40,"chr":"^","pixels":[0,4,153,0,5,238,1,2,204,1,3,221,2,1,221,2,2,221,3,3,187,3,4,221],"secondary":false},{"width":6,"bonus":20,"chr":"~","pixels":[1,5,255,2,5,221,3,6,221,4,5,204],"secondary":false},{"width":7,"bonus":95,"chr":"&","pixels":[0,6,187,1,2,238,1,3,255,1,4,187,1,5,187,1,8,187,2,1,255,2,4,255,2,8,255,3,1,255,3,4,255,3,8,255,4,4,255,4,8,187,5,3,204,5,4,255,5,5,221,5,6,187,6,4,153],"secondary":false},{"width":6,"bonus":45,"chr":"*","pixels":[0,2,170,1,2,170,1,3,204,1,4,255,2,1,204,2,2,238,2,3,255,3,2,170,3,4,153],"secondary":false},{"width":4,"bonus":55,"chr":"(","pixels":[0,3,173,0,4,239,0,5,253,0,6,230,0,7,171,1,1,194,1,2,204,1,8,204,1,9,191,2,0,210,2,10,216],"secondary":false},{"width":4,"bonus":55,"chr":")","pixels":[1,0,211,1,10,216,2,1,194,2,2,203,2,8,203,2,9,191,3,3,174,3,4,240,3,5,253,3,6,229,3,7,171],"secondary":false},{"width":7,"bonus":30,"chr":"_","pixels":[0,9,153,1,9,255,2,9,255,3,9,255,4,9,255,5,9,255],"secondary":false},{"width":4,"bonus":15,"chr":"-","pixels":[0,5,255,1,5,255,2,5,255],"secondary":true},{"width":8,"bonus":50,"chr":"=","pixels":[0,4,255,0,6,255,1,4,255,1,6,255,2,4,255,2,6,255,3,4,255,3,6,255,4,4,255,4,6,255],"secondary":false},{"width":3,"bonus":55,"chr":"[","pixels":[0,0,204,0,1,221,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,204,1,0,238,1,8,238],"secondary":false},{"width":3,"bonus":55,"chr":"]","pixels":[0,0,238,0,8,238,1,0,204,1,1,221,1,2,221,1,3,221,1,4,221,1,5,221,1,6,221,1,7,221,1,8,204],"secondary":false},{"width":5,"bonus":50,"chr":"{","pixels":[0,5,153,1,2,170,1,3,221,1,4,221,1,5,204,1,6,255,1,7,221,1,8,170,2,1,238,2,9,238],"secondary":false},{"width":5,"bonus":50,"chr":"}","pixels":[1,1,238,1,9,238,2,2,170,2,3,221,2,4,221,2,5,204,2,6,255,2,7,221,2,8,170,3,5,153],"secondary":false},{"width":3,"bonus":10,"chr":":","pixels":[1,3,255,1,7,255],"secondary":true},{"width":3,"bonus":20,"chr":";","pixels":[0,9,201,1,3,255,1,7,241,1,8,255],"secondary":true},{"width":3,"bonus":20,"chr":"\\"","pixels":[0,1,255,0,2,255,2,1,255,2,2,255],"secondary":true},{"width":2,"bonus":10,"chr":"\'","pixels":[0,1,255,0,2,177],"secondary":true},{"width":7,"bonus":40,"chr":"<","pixels":[0,5,204,1,5,255,2,4,238,2,6,238,3,4,170,3,6,170,4,3,221,4,7,221],"secondary":false},{"width":7,"bonus":45,"chr":">","pixels":[0,3,204,0,7,204,1,7,187,2,4,238,2,6,255,3,4,170,3,5,153,3,6,204,4,5,255],"secondary":false},{"width":5,"bonus":35,"chr":"\\\\","pixels":[1,1,153,1,2,255,1,3,204,2,5,255,2,6,204,3,8,255,3,9,204],"secondary":false},{"width":2,"bonus":5,"chr":".","pixels":[0,8,255],"secondary":true},{"width":3,"bonus":15,"chr":",","pixels":[0,9,205,1,7,205,1,8,255],"secondary":true},{"width":3,"bonus":50,"chr":"|","pixels":[0,1,221,0,2,221,0,3,221,0,4,221,0,5,221,0,6,221,0,7,221,0,8,221,0,9,221,0,10,204],"secondary":false}],"width":10,"spacewidth":3,"shadow":false,"height":12,"basey":8}');
+
+/***/ }
+
+/******/ 	});
+/************************************************************************/
+/******/ 	// The module cache
+/******/ 	var __webpack_module_cache__ = {};
+/******/ 	
+/******/ 	// The require function
+/******/ 	function __nested_webpack_require_16950__(moduleId) {
+/******/ 		// Check if module is in cache
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
+/******/ 		}
+/******/ 		// Check if module exists (development only)
+/******/ 		if (__webpack_modules__[moduleId] === undefined) {
+/******/ 			var e = new Error("Cannot find module '" + moduleId + "'");
+/******/ 			e.code = 'MODULE_NOT_FOUND';
+/******/ 			throw e;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 			// no module.id needed
+/******/ 			// no module.loaded needed
+/******/ 			exports: {}
+/******/ 		};
+/******/ 	
+/******/ 		// Execute the module function
+/******/ 		__webpack_modules__[moduleId](module, module.exports, __nested_webpack_require_16950__);
+/******/ 	
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/ 	
+/************************************************************************/
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module doesn't tell about it's top-level declarations so it can't be inlined
+/******/ 	var __nested_webpack_exports__ = __nested_webpack_require_16950__("./src/fonts/aa_8px_mono.fontmeta.json");
 /******/ 	
 /******/ 	return __nested_webpack_exports__;
 /******/ })()
