@@ -7,6 +7,7 @@ const font12 = require("alt1/fonts/aa_12px_mono") as OCR.FontDefinition;
 const font10 = require("alt1/fonts/aa_10px_mono") as OCR.FontDefinition;
 const font9allcaps = require("alt1/fonts/aa_9px_mono_allcaps") as OCR.FontDefinition;
 const font8allcaps = require("alt1/fonts/aa_8px_mono_allcaps") as OCR.FontDefinition;
+const font8mono = require("alt1/fonts/aa_8px_mono") as OCR.FontDefinition;
 
 // Right half of screen center — the Display Case text panel (question + options) is always
 // on the right side of the window. Starting at 46% skips the creature display on the left.
@@ -15,14 +16,15 @@ const SCAN_W_FRAC = 0.18;
 const SCAN_Y_FRAC = 0.28;
 const SCAN_H_FRAC = 0.44;
 
-// Display Case option text is golden-orange (~255,160,40 observed via color diagnostic).
-// White variants kept as fallback in case question text differs.
+// Options text appears white/gray (~220-240,220-240,220-240) based on color diagnostic.
+// Orange (~255,160,40) is the interface frame/border, not the text itself.
 const COLORS: OCR.ColortTriplet[] = [
+    [255, 255, 255],
+    [220, 220, 220],
+    [200, 200, 200],
+    [240, 240, 240],
     [255, 160, 40],
     [255, 144, 20],
-    [255, 176, 60],
-    [255, 255, 255],
-    [240, 225, 205],
 ];
 
 // Noise-only strings returned by OCR when it finds bright pixels but no char match
@@ -50,8 +52,9 @@ export function scanDisplayCase(img: a1lib.ImgRef): DisplayCaseResult | null {
     const buf = img.toData(capX, capY, capW, capH);
 
     logTopColors(buf, capX, capY);
+    logRowProfile(buf, capX, capY);
 
-    for (const font of [font12, font10, font9allcaps, font8allcaps]) {
+    for (const font of [font12, font10, font9allcaps, font8allcaps, font8mono]) {
         for (const color of COLORS) {
             const result = tryFont(buf, font, color, capX, capY, capW, capH);
             if (result) return result;
@@ -77,6 +80,47 @@ function logTopColors(buf: ImageData, capX: number, capY: number) {
     }
     const top = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
     console.log(`[NHQ-DC] Bright pixel colors (capX=${capX},capY=${capY}):`, top.map(([k, n]) => `${k}×${n}`).join("  "));
+}
+
+// Log which rows have clusters of gray/white pixels — these rows contain the option text.
+function logRowProfile(buf: ImageData, capX: number, capY: number) {
+    const W = buf.width;
+    const H = buf.height;
+    const data = buf.data;
+
+    // Count gray-ish pixels (r≈g≈b, all >140) and orange pixels per row
+    const grayRows: number[] = [];
+    const orangeRows: number[] = [];
+    for (let y = 0; y < H; y++) {
+        let gray = 0, orange = 0;
+        for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const isGray = r > 140 && g > 140 && b > 140 && Math.abs(r - g) < 30 && Math.abs(g - b) < 30;
+            const isOrange = r > 200 && g > 100 && g < 200 && b < 80;
+            if (isGray) gray++;
+            if (isOrange) orange++;
+        }
+        if (gray >= 3) grayRows.push(capY + y);
+        if (orange >= 5) orangeRows.push(capY + y);
+    }
+
+    // Compress consecutive runs into ranges
+    function compress(rows: number[]): string {
+        if (rows.length === 0) return "(none)";
+        const ranges: string[] = [];
+        let start = rows[0], prev = rows[0];
+        for (const r of rows.slice(1)) {
+            if (r === prev + 1) { prev = r; continue; }
+            ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
+            start = prev = r;
+        }
+        ranges.push(start === prev ? `${start}` : `${start}-${prev}(${prev - start + 1})`);
+        return ranges.join(" ");
+    }
+
+    console.log(`[NHQ-DC] Gray rows (≥3px):`, compress(grayRows));
+    console.log(`[NHQ-DC] Orange rows (≥5px):`, compress(orangeRows));
 }
 
 function tryFont(
