@@ -138,9 +138,9 @@ function logRowProfile(buf, capX, capY) {
             if (orange >= 4)
                 orangeInfo.push({ y: capY + y, count: orange, minX: capX + oMinX, maxX: capX + oMaxX });
         }
-        // Top 8 rows by pixel count
-        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 8);
-        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 8);
+        // Top 20 rows by pixel count (text rows have ~5-10px, frame has 40-77px)
+        const topGray = grayInfo.sort((a, b) => b.count - a.count).slice(0, 20);
+        const topOrange = orangeInfo.sort((a, b) => b.count - a.count).slice(0, 20);
         console.log("[NHQ-DC] Top gray rows:", topGray.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
         console.log("[NHQ-DC] Top orange rows:", topOrange.map(r => `y=${r.y}(${r.count}px,x=${r.minX}-${r.maxX})`).join(" ") || "(none)");
     }
@@ -182,7 +182,9 @@ function tryFont(buf, font, color, capX, capY, capW, capH) {
             })),
         };
     }
-    console.log(`[NHQ-DC] ${lines.length} line(s), no triplet match`, `(font.h=${font.height} color=${color}):`, lines.map(l => `"${l.text}" @y=${capY + l.localY - font.basey} x=${capX + l.x0}-${capX + l.x1}`));
+    // Force to string so the console doesn't show a lazy Array(N) reference
+    const lineStr = lines.map(l => `"${l.text}" @y=${capY + l.localY - font.basey} x=${capX + l.x0}-${capX + l.x1}`).join(", ");
+    console.log(`[NHQ-DC] ${lines.length} line(s), no triplet match (font.h=${font.height} color=${color}): ${lineStr}`);
     return null;
 }
 
