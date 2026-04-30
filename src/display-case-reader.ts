@@ -143,10 +143,10 @@ function logOptionPixels(buf: ImageData, capX: number, capY: number) {
     if (now - _lastOptDump < 8000) return;
     _lastOptDump = now;
 
-    // Option rows confirmed at screen y≈649,669,689,709 (20px apart).
-    // Dump 13 rows centred on each baseline, x=1260-1400 (covers detected x=1283-1309 + margin).
+    // Option text confirmed at x=1151-1224 from previous gray-band analysis.
+    // Cover the text panel from capX to capX+250, plus lower threshold to see dim glyphs.
     const ROWS = [649, 669, 689, 709];
-    const SX0 = 1260, SX1 = 1400;
+    const SX0 = capX + 1, SX1 = capX + 250;
     const lx0 = SX0 - capX, lx1 = SX1 - capX;
     if (lx0 < 0 || lx1 > buf.width) {
         console.log(`[NHQ-OPT] x range ${SX0}-${SX1} out of scan (capX=${capX} w=${buf.width})`);
@@ -163,7 +163,7 @@ function logOptionPixels(buf: ImageData, capX: number, capY: number) {
             for (let lx = lx0; lx <= lx1; lx++) {
                 const i = (ly * W + lx) * 4;
                 const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                row += v > 200 ? "#" : v > 120 ? "+" : ".";
+                row += v > 200 ? "#" : v > 140 ? "+" : v > 80 ? "-" : ".";
             }
             console.log(`[NHQ-OPT] y=${sy + dy}(${dy >= 0 ? "+" : ""}${dy}): ${row}`);
         }
